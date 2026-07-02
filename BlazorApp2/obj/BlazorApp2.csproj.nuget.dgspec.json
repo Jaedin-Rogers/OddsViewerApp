@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/BlazorApp2.csproj": {}
+    "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj": {}
   },
   "projects": {
-    "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/BlazorApp2.csproj": {
+    "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/BlazorApp2.csproj",
+        "projectUniqueName": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
         "projectName": "BlazorApp2",
-        "projectPath": "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/BlazorApp2.csproj",
+        "projectPath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
         "packagesPath": "/Users/jaedin/.nuget/packages/",
-        "outputPath": "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/obj/",
+        "outputPath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/jaedin/.nuget/NuGet/NuGet.Config"

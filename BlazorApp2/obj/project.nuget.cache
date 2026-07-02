@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "iiyFc3yGn64=",
+  "dgSpecHash": "NR9H62seFGw=",
   "success": true,
-  "projectFilePath": "/Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/BlazorApp2.csproj",
+  "projectFilePath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
   "expectedPackageFiles": [
     "/Users/jaedin/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.8/microsoft.aspnetcore.app.internal.assets.10.0.8.nupkg.sha512"
   ],
