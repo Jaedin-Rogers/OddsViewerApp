@@ -126,7 +126,7 @@ public sealed class OddsApiService
     {
         var lines = new List<string>
         {
-            "Sport,League,EventId,EventName,HomeTeam,AwayTeam,Bookmaker,Market,Team,Player,Selection,Handicap,Price,OverPrice,UnderPrice,LastUpdated"
+            "MatchDate,Sport,League,EventId,EventName,HomeTeam,AwayTeam,Bookmaker,Market,Team,Player,Selection,Handicap,Price,OverPrice,UnderPrice,LastUpdated"
         };
  
 
@@ -134,6 +134,7 @@ public sealed class OddsApiService
         {
             lines.Add(string.Join(",", new[]
             {
+                Csv(r.MatchDate?.ToString("O") ?? ""),
                 Csv(r.Sport),
                 Csv(r.League),
                 Csv(r.EventId),
@@ -176,6 +177,7 @@ public sealed class OddsApiService
                 ? $"{away} @ {home}"
                 : GetString(eventNode, "title");
             var league = string.IsNullOrWhiteSpace(sportNice) ? sportKey : sportNice;
+            var matchDate = ParseDateTimeOffset(GetString(eventNode, "commence_time"));
 
             var bookmakers = eventNode["bookmakers"] as JsonArray ?? eventNode["sites"] as JsonArray;
             if (bookmakers is null)
@@ -207,6 +209,55 @@ public sealed class OddsApiService
                         if (outcomes is null)
                             continue;
 
+                       if (string.Equals(marketKey, "totals", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var normalizedOutcomes = outcomes
+                                .Where(o => o is not null)
+                                .Select(o => new
+                                {
+                                    Name = GetString(o, "name"),
+                                    PriceText = GetString(o, "price"),
+                                    PointText = GetString(o, "point")
+                                })
+                                .ToList();
+
+
+                            foreach (var totalLineGroup in normalizedOutcomes.GroupBy(x => x.PointText, StringComparer.OrdinalIgnoreCase))
+                            {
+                                var over = totalLineGroup.FirstOrDefault(x => string.Equals(x.Name, "Over", StringComparison.OrdinalIgnoreCase));
+                                var under = totalLineGroup.FirstOrDefault(x => string.Equals(x.Name, "Under", StringComparison.OrdinalIgnoreCase));
+
+
+                                if (over is null && under is null)
+                                    continue;
+
+
+                                rows.Add(new OddsRow
+                                {
+                                    MatchDate = matchDate,
+                                    Sport = league,
+                                    League = league,
+                                    EventId = id,
+                                    EventName = eventName,
+                                    HomeTeam = home,
+                                    AwayTeam = away,
+                                    Bookmaker = bookmaker,
+                                    Market = marketKey,
+                                    Team = string.Empty,
+                                    Player = string.Empty,
+                                    Selection = "Over/Under",
+                                    Handicap = ParseDecimal(FirstNonBlank(over?.PointText ?? "", under?.PointText ?? "")),
+                                    Price = null,
+                                    OverPrice = ParseDecimal(over?.PriceText),
+                                    UnderPrice = ParseDecimal(under?.PriceText),
+                                    LastUpdated = DateTimeOffset.UtcNow
+                                });
+                            }
+
+
+                            continue;
+                        }
+
                         for (var i = 0; i < outcomes.Count; i++)
                         {
                             var outcomeNode = outcomes[i];
@@ -223,6 +274,7 @@ public sealed class OddsApiService
 
                             rows.Add(new OddsRow
                             {
+                                MatchDate = matchDate,
                                 Sport = league,
                                 League = league,
                                 EventId = id,
@@ -262,6 +314,7 @@ public sealed class OddsApiService
 
                     rows.Add(new OddsRow
                     {
+                        MatchDate = matchDate,
                         Sport = league,
                         League = league,
                         EventId = id,
@@ -297,6 +350,17 @@ public sealed class OddsApiService
         return null;
     }
 
+
+    private static DateTimeOffset? ParseDateTimeOffset(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var value))
+            return value;
+
+        return null;
+    }
     private static string GetString(JsonNode? node, string propertyName)
     {
         return node?[propertyName]?.ToString() ?? "";

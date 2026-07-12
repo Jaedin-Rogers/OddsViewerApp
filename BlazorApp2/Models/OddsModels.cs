@@ -24,6 +24,7 @@ public sealed class EventOption
 
 public sealed class OddsRow
 {
+    public DateTimeOffset? MatchDate { get; set; }
     public string Sport { get; set; } = "";
     public string League { get; set; } = "";
     public string EventId { get; set; } = "";
