@@ -81,7 +81,7 @@
  
 
         <div class="mt-3 d-flex gap-2">
-            <button class="btn btn-primary" @onclick="LoadOddsAsync" disabled="@IsLoading">
+            <button class="btn btn-primary" @onclick="() => LoadOddsAsync(false)" disabled="@IsLoading">
                 @(IsLoading ? "Loading..." : "Load Odds")
             </button>
  
@@ -183,6 +183,8 @@ else if (!IsLoading)
  
 
 @code {
+    private static readonly TimeSpan SportCacheDuration = TimeSpan.FromMinutes(2);
+    private readonly Dictionary<string, CachedSportData> SportCache = new(StringComparer.OrdinalIgnoreCase);
     private List<SportOption> Sports = new();
     private List<OddsRow> AllOdds = new();
  
@@ -204,11 +206,9 @@ else if (!IsLoading)
     }
  
 
-    private async Task LoadOddsAsync()
+    private async Task LoadOddsAsync(bool forceRefresh = false)
     {
         ErrorMessage = "";
-        AllOdds.Clear();
- 
 
         if (string.IsNullOrWhiteSpace(SelectedSport))
         {
@@ -226,6 +226,19 @@ else if (!IsLoading)
             SelectedMarket = "h2h";
         }
 
+        var sportKey = SelectedSport.Trim();
+        var now = DateTimeOffset.UtcNow;
+
+        if (!forceRefresh && SportCache.TryGetValue(sportKey, out var cached) && now - cached.LoadedAt < SportCacheDuration)
+        {
+            AllOdds = cached.Rows.ToList();
+            SelectedTeam = "";
+            SelectedPlayer = "";
+            SelectedBookmaker = "DraftKings";
+            SelectedMarket = "h2h";
+            return;
+        }
+
         try
         {
             IsLoading = true;
@@ -233,7 +246,10 @@ else if (!IsLoading)
 
             // This pulls the whole odds dataset for the selected sport,
             // then all dropdown filters happen locally in memory.
-            AllOdds = await OddsApi.GetOddsForSportAsync(SelectedSport);
+            var rows = await OddsApi.GetOddsForSportAsync(sportKey);
+            var cachedRows = rows.ToList();
+            SportCache[sportKey] = new CachedSportData(cachedRows, now);
+            AllOdds = cachedRows;
  
 
             SelectedTeam = "";
@@ -341,5 +357,17 @@ else if (!IsLoading)
 
     private string JsonPreview =>
         OddsApi.ConvertRowsToJson(VisibleOdds.Take(25).ToList());
+
+    private sealed class CachedSportData
+    {
+        public CachedSportData(List<OddsRow> rows, DateTimeOffset loadedAt)
+        {
+            Rows = rows;
+            LoadedAt = loadedAt;
+        }
+
+        public List<OddsRow> Rows { get; }
+        public DateTimeOffset LoadedAt { get; }
+    }
 }
  
