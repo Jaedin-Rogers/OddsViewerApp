@@ -15,7 +15,7 @@
  
 
 <p class="text-muted">
-    Choose a sport first. Team, player, and odds type are optional filters.
+    Choose a sport first. Market and bookmaker default to Head to Head and DraftKings.
 </p>
  
 
@@ -59,9 +59,18 @@
  
 
             <div class="col-md-3">
+                <label class="form-label">Bookmaker</label>
+                <select class="form-select" @bind="SelectedBookmaker" disabled="@(!FilteredBookmakers.Any())">
+                    @foreach (var bookmaker in FilteredBookmakers)
+                    {
+                        <option value="@bookmaker">@bookmaker</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3">
                 <label class="form-label">Odds Type</label>
                 <select class="form-select" @bind="SelectedMarket" disabled="@(!FilteredMarkets.Any())">
-                    <option value="">All odds types</option>
                     @foreach (var market in FilteredMarkets)
                     {
                         <option value="@market">@market</option>
@@ -230,7 +239,8 @@ else if (!IsLoading)
     private string SelectedSport = "";
     private string SelectedTeam = "";
     private string SelectedPlayer = "";
-    private string SelectedMarket = "";
+    private string SelectedBookmaker = "DraftKings";
+    private string SelectedMarket = "h2h";
  
 
     private bool IsLoading;
@@ -253,6 +263,16 @@ else if (!IsLoading)
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(SelectedBookmaker))
+        {
+            SelectedBookmaker = "DraftKings";
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedMarket))
+        {
+            SelectedMarket = "h2h";
+        }
+
         var sportKey = SelectedSport.Trim();
         var now = DateTimeOffset.UtcNow;
 
@@ -261,7 +281,8 @@ else if (!IsLoading)
             AllOdds = cached.Rows.ToList();
             SelectedTeam = "";
             SelectedPlayer = "";
-            SelectedMarket = "";
+            SelectedBookmaker = "DraftKings";
+            SelectedMarket = "h2h";
             return;
         }
 
@@ -275,10 +296,12 @@ else if (!IsLoading)
             var cachedRows = rows.ToList();
             SportCache[sportKey] = new CachedSportData(cachedRows, now);
             AllOdds = cachedRows;
+ 
 
             SelectedTeam = "";
             SelectedPlayer = "";
-            SelectedMarket = "";
+            SelectedBookmaker = "DraftKings";
+            SelectedMarket = "h2h";
         }
         catch (Exception ex)
         {
@@ -295,7 +318,8 @@ else if (!IsLoading)
     {
         SelectedTeam = "";
         SelectedPlayer = "";
-        SelectedMarket = "";
+        SelectedBookmaker = "DraftKings";
+        SelectedMarket = "h2h";
     }
  
 
@@ -309,6 +333,9 @@ else if (!IsLoading)
             .Where(x =>
                 string.IsNullOrWhiteSpace(SelectedPlayer) ||
                 x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
+                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
             .Where(x =>
                 string.IsNullOrWhiteSpace(SelectedMarket) ||
                 x.Market.Equals(SelectedMarket, StringComparison.OrdinalIgnoreCase))
@@ -348,7 +375,26 @@ else if (!IsLoading)
             .Where(x =>
                 string.IsNullOrWhiteSpace(SelectedPlayer) ||
                 x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
+                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
             .Select(x => x.Market)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+    private List<string> FilteredBookmakers =>
+        AllOdds
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPlayer) ||
+                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Bookmaker)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x)
