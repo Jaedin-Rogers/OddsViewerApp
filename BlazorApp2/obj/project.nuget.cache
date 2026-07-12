@@ -1,10 +1,24 @@
 {
   "version": 2,
-  "dgSpecHash": "NR9H62seFGw=",
+  "dgSpecHash": "bFz5aSaCJdU=",
   "success": true,
   "projectFilePath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
   "expectedPackageFiles": [
-    "/Users/jaedin/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.8/microsoft.aspnetcore.app.internal.assets.10.0.8.nupkg.sha512"
+    "/Users/jaedin/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.8/microsoft.aspnetcore.app.internal.assets.10.0.8.nupkg.sha512",
+    "/Users/jaedin/.nuget/packages/mudblazor/8.9.0/mudblazor.8.9.0.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1603",
+      "level": "Warning",
+      "message": "BlazorApp2 depends on MudBlazor (>= 8.8.4) but MudBlazor 8.8.4 was not found. MudBlazor 8.9.0 was resolved instead.",
+      "projectPath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
+      "warningLevel": 1,
+      "filePath": "/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/BlazorApp2.csproj",
+      "libraryId": "MudBlazor",
+      "targetGraphs": [
+        "net10.0"
+      ]
+    }
+  ]
 }

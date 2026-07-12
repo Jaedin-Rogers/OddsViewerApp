@@ -170,6 +170,7 @@
 /Users/jaedin/Desktop/C# Testing/BlazorApp2/OddsViewerApp/obj/Debug/net10.0/ref/BlazorApp2.dll
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/EmbeddedAttribute.cs
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/ValidatableTypeAttribute.cs
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.csproj.AssemblyReference.cache
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/rpswa.dswa.cache.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.GeneratedMSBuildEditorConfig.editorconfig
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.AssemblyInfoInputs.cache
@@ -177,18 +178,16 @@
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.csproj.CoreCompileInputs.cache
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.MvcApplicationPartsAssemblyInfo.cache
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.sourcelink.json
-/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.dll
-/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/refint/BlazorApp2.dll
-/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.pdb
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/appsettings.Development.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/appsettings.json
-/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.staticwebassets.endpoints.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.staticwebassets.runtime.json
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.staticwebassets.endpoints.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.deps.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.runtimeconfig.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.dll
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/BlazorApp2.pdb
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/bin/Debug/net10.0/MudBlazor.dll
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/rjimswa.dswa.cache.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/rjsmrazor.dswa.cache.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/rjsmcshtml.dswa.cache.json
@@ -197,7 +196,8 @@
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/scopedcss/Components/Layout/ReconnectModal.razor.rz.scp.css
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/scopedcss/bundle/BlazorApp2.styles.css
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/scopedcss/projectbundle/BlazorApp2.bundle.scp.css
-/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/fcccs64pwj-{0}-khy4lop6wu-khy4lop6wu.gz
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/tzxjg6is5z-{0}-sowobu9fea-sowobu9fea.gz
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/0wz98yz2xy-{0}-b8x8f7e52z-b8x8f7e52z.gz
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/f5ib5pyqcn-{0}-bqjiyaj88i-bqjiyaj88i.gz
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/0p2nidlfsb-{0}-c2jlpeoesf-c2jlpeoesf.gz
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/vior7op275-{0}-erw9l3u2r3-erw9l3u2r3.gz
@@ -252,5 +252,10 @@
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/staticwebassets.development.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/staticwebassets.build.endpoints.json
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/swae.build.ex.cache
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.csproj.Up2Date
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.dll
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/refint/BlazorApp2.dll
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.pdb
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/BlazorApp2.genruntimeconfig.cache
 /Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/ref/BlazorApp2.dll
+/Users/jaedin/Desktop/OddsViewerApp/BlazorApp2/obj/Debug/net10.0/compressed/fcccs64pwj-{0}-bdhzy3rvpr-bdhzy3rvpr.gz

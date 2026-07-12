@@ -1,486 +1,493 @@
 @page "/"
 @page "/odds"
 @rendermode InteractiveServer
- 
-
 @using OddsViewerApp.Models
 @using OddsViewerApp.Services
 @inject OddsApiService OddsApi
- 
+
 
 <PageTitle>Odds Viewer</PageTitle>
- 
 
-<h1>Odds Viewer</h1>
- 
 
-<p class="text-muted">
-    Choose a sport first. Market and bookmaker default to Head to Head and DraftKings.
-</p>
- 
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-1">Odds Viewer</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Choose a sport first. Market and bookmaker default to Head to Head and DraftKings.
+    </MudText>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Sport</label>
-                <select class="form-select" @bind="SelectedSport">
-                    <option value="">-- Select sport --</option>
-                    @foreach (var sport in Sports)
-                    {
-                        <option value="@sport.Key">@sport.DisplayName</option>
-                    }
-                </select>
-            </div>
- 
 
-            <div class="col-md-3">
-                <label class="form-label">Team</label>
-                <select class="form-select" @bind="SelectedTeam" disabled="@(!FilteredTeams.Any())">
-                    <option value="">All teams</option>
-                    @foreach (var team in FilteredTeams)
-                    {
-                        <option value="@team">@team</option>
-                    }
-                </select>
-            </div>
- 
+    <MudPaper Class="pa-4 mb-4" Outlined="true">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedSport" Label="Sport" Placeholder="Select sport" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@string.Empty">-- Select sport --</MudSelectItem>
+                    @foreach (var sport in Sports)
+                    {
+                        <MudSelectItem Value="@sport.Key">@sport.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
 
-            <div class="col-md-3">
-                <label class="form-label">Player</label>
-                <select class="form-select" @bind="SelectedPlayer" disabled="@(!FilteredPlayers.Any())">
-                    <option value="">All players</option>
-                    @foreach (var player in FilteredPlayers)
-                    {
-                        <option value="@player">@player</option>
-                    }
-                </select>
-            </div>
- 
 
-            <div class="col-md-3">
-                <label class="form-label">Bookmaker</label>
-                <select class="form-select" @bind="SelectedBookmaker" disabled="@(!FilteredBookmakers.Any())">
-                    @foreach (var bookmaker in FilteredBookmakers)
-                    {
-                        <option value="@bookmaker">@bookmaker</option>
-                    }
-                </select>
-            </div>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedTeam" Label="Team" Placeholder="All teams" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!FilteredTeams.Any())">
+                    <MudSelectItem Value="@string.Empty">All teams</MudSelectItem>
+                    @foreach (var team in FilteredTeams)
+                    {
+                        <MudSelectItem Value="@team">@team</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
 
-            <div class="col-md-3">
-                <label class="form-label">Odds Type</label>
-                <select class="form-select" @bind="SelectedMarket" disabled="@(!FilteredMarkets.Any())">
-                    @foreach (var market in FilteredMarkets)
-                    {
-                        <option value="@market">@market</option>
-                    }
-                </select>
-            </div>
-        </div>
- 
 
-        <div class="mt-3 d-flex gap-2">
-            <button class="btn btn-primary" @onclick="() => LoadOddsAsync(false)" disabled="@IsLoading">
-                @(IsLoading ? "Loading..." : "Load Odds")
-            </button>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedPlayer" Label="Player" Placeholder="All players" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!FilteredPlayers.Any())">
+                    <MudSelectItem Value="@string.Empty">All players</MudSelectItem>
+                    @foreach (var player in FilteredPlayers)
+                    {
+                        <MudSelectItem Value="@player">@player</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
 
-            <button class="btn btn-outline-secondary" @onclick="() => LoadOddsAsync(true)" disabled="@IsLoading">
-                Reload
-            </button>
- 
 
-            <button class="btn btn-outline-secondary" @onclick="ClearFilters" disabled="@IsLoading">
-                Clear Filters
-            </button>
-        </div>
-    </div>
-</div>
- 
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedBookmaker" Label="Bookmaker" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!FilteredBookmakers.Any())">
+                    @foreach (var bookmaker in FilteredBookmakers)
+                    {
+                        <MudSelectItem Value="@bookmaker">@bookmaker</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
 
-@if (!string.IsNullOrWhiteSpace(ErrorMessage))
-{
-    <div class="alert alert-danger">
-        @ErrorMessage
-    </div>
-}
- 
 
-@if (AllOdds.Any())
-{
-    <div class="mb-3">
-        <strong>Total rows loaded:</strong> @AllOdds.Count
-        <span class="ms-3">
-            <strong>Rows after filters:</strong> @VisibleOdds.Count
-        </span>
-    </div>
- 
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedMarket" Label="Odds Type" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!FilteredMarkets.Any())">
+                    @foreach (var market in FilteredMarkets)
+                    {
+                        <MudSelectItem Value="@market">@market</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
 
-    <div class="accordion mb-3" id="dataAccordion">
-        <div class="accordion-item">
-            <h2 class="accordion-header">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#jsonPreview">
-                    Pandas-ready JSON preview
-                </button>
-            </h2>
-            <div id="jsonPreview" class="accordion-collapse collapse">
-                <div class="accordion-body">
-                    <pre class="bg-light p-3 rounded" style="max-height: 350px; overflow: auto;">@JsonPreview</pre>
-                </div>
-            </div>
-        </div>
-    </div>
- 
 
-    <table class="table table-striped table-sm">
-        <thead>
-            <tr>
-                <th>Match Date</th>
-                <th>Event</th>
-                <th>Bookmaker</th>
-                <th>Market</th>
-                @if (ShowTeamColumn)
-                {
-                    <th>Team</th>
-                }
-                @if (ShowPlayerColumn)
-                {
-                    <th>Player</th>
-                }
-                @if (ShowSelectionColumn)
-                {
-                    <th>Selection</th>
-                }
-                @if (ShowLineColumn)
-                {
-                    <th>@LineHeader</th>
-                }
-                @if (ShowPriceColumn)
-                {
-                    <th>Price</th>
-                }
-                @if (ShowOverColumn)
-                {
-                    <th>Over</th>
-                }
-                @if (ShowUnderColumn)
-                {
-                    <th>Under</th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var row in VisibleOdds.Take(300))
-            {
-                <tr>
-                    <td>@FormatMatchDate(row.MatchDate)</td>
-                    <td>@row.EventName</td>
-                    <td>@row.Bookmaker</td>
-                    <td>@row.Market</td>
-                    @if (ShowTeamColumn)
-                    {
-                        <td>@row.Team</td>
-                    }
-                    @if (ShowPlayerColumn)
-                    {
-                        <td>@row.Player</td>
-                    }
-                    @if (ShowSelectionColumn)
-                    {
-                        <td>@row.Selection</td>
-                    }
-                    @if (ShowLineColumn)
-                    {
-                        <td>@row.Handicap</td>
-                    }
-                    @if (ShowPriceColumn)
-                    {
-                        <td>@row.Price</td>
-                    }
-                    @if (ShowOverColumn)
-                    {
-                        <td>@row.OverPrice</td>
-                    }
-                    @if (ShowUnderColumn)
-                    {
-                        <td>@row.UnderPrice</td>
-                    }
-                </tr>
-            }
-        </tbody>
-    </table>
- 
+        <MudStack Row="true" Spacing="2" Class="mt-4" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => LoadOddsAsync(false)" Disabled="@IsLoading">
+                @(IsLoading ? "Loading..." : "Load Odds")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="() => LoadOddsAsync(true)" Disabled="@IsLoading">
+                Reload
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="ClearFilters" Disabled="@IsLoading">
+                Clear Filters
+            </MudButton>
+        </MudStack>
+    </MudPaper>
 
-    @if (VisibleOdds.Count > 300)
-    {
-        <div class="alert alert-info">
-            Showing first 300 rows. Filters still apply to the full loaded dataset.
-        </div>
-    }
-}
-else if (!IsLoading)
-{
-    <div class="alert alert-secondary">
-        No odds loaded yet.
-    </div>
-}
- 
+
+    @if (IsLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@ErrorMessage</MudAlert>
+    }
+
+
+    @if (AllOdds.Any())
+    {
+        <MudStack Row="true" Spacing="3" Class="mb-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2"><strong>Total rows loaded:</strong> @AllOdds.Count</MudText>
+            <MudText Typo="Typo.body2"><strong>Rows after filters:</strong> @VisibleOdds.Count</MudText>
+        </MudStack>
+
+
+        <MudExpansionPanels Class="mb-3">
+            <MudExpansionPanel Text="Pandas-ready JSON preview">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <pre style="max-height:350px; overflow:auto; margin:0;">@JsonPreview</pre>
+                </MudPaper>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+
+        <MudDataGrid T="OddsRow"
+                     Items="@VisibleOdds.Take(300).ToList()"
+                     Height="690px"
+                     FixedHeader="true"
+                     Dense="true"
+                     Striped="true"
+                     Hover="true">
+            <Columns>
+                <TemplateColumn T="OddsRow" Title="Match Date">
+                    <CellTemplate>
+                        @FormatMatchDate(context.Item.MatchDate)
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.EventName" Title="Event" />
+                <PropertyColumn Property="x => x.Bookmaker" Title="Bookmaker" />
+                <PropertyColumn Property="x => x.Market" Title="Market" />
+
+
+                @if (ShowTeamColumn)
+                {
+                    <PropertyColumn Property="x => x.Team" Title="Team" />
+                }
+
+
+                @if (ShowPlayerColumn)
+                {
+                    <PropertyColumn Property="x => x.Player" Title="Player" />
+                }
+
+
+                @if (ShowSelectionColumn)
+                {
+                    <PropertyColumn Property="x => x.Selection" Title="Selection" />
+                }
+
+
+                @if (ShowLineColumn)
+                {
+                    <TemplateColumn T="OddsRow" Title="@LineHeader">
+                        <CellTemplate>
+                            @context.Item.Handicap
+                        </CellTemplate>
+                    </TemplateColumn>
+                }
+
+
+                @if (ShowPriceColumn)
+                {
+                    <PropertyColumn Property="x => x.Price" Title="Price" />
+                }
+
+
+                @if (ShowOverColumn)
+                {
+                    <PropertyColumn Property="x => x.OverPrice" Title="Over" />
+                }
+
+
+                @if (ShowUnderColumn)
+                {
+                    <PropertyColumn Property="x => x.UnderPrice" Title="Under" />
+                }
+            </Columns>
+        </MudDataGrid>
+
+
+        @if (VisibleOdds.Count > 300)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-3">
+                Showing first 300 rows. Filters still apply to the full loaded dataset.
+            </MudAlert>
+        }
+    }
+    else if (!IsLoading)
+    {
+        <MudAlert Severity="Severity.Normal">No odds loaded yet.</MudAlert>
+    }
+</MudContainer>
+ 
+
 
 @code {
 
-    private static readonly TimeSpan SportCacheDuration = TimeSpan.FromMinutes(2);
-    private const string DisplayTimeZoneId = "Central Standard Time"; // Change this to your desired timezone ID
-    private static readonly TimeZoneInfo DisplayTimeZone = ResolveTimeZone(DisplayTimeZoneId);
-    private readonly Dictionary<string, CachedSportData> SportCache = new(StringComparer.OrdinalIgnoreCase);
-    private List<SportOption> Sports = new();
-    private List<OddsRow> AllOdds = new();
- 
 
-    private string SelectedSport = "";
-    private string SelectedTeam = "";
-    private string SelectedPlayer = "";
-    private string SelectedBookmaker = "DraftKings";
-    private string SelectedMarket = "h2h";
- 
-
-    private bool IsLoading;
-    private string ErrorMessage = "";
- 
-
-    protected override async Task OnInitializedAsync()
-    {
-        Sports = await OddsApi.GetSportsAsync();
-    }
- 
-
-    private async Task LoadOddsAsync(bool forceRefresh = false)
-    {
-        ErrorMessage = "";
-
-        if (string.IsNullOrWhiteSpace(SelectedSport))
-        {
-            ErrorMessage = "Pick a sport first.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(SelectedBookmaker))
-        {
-            SelectedBookmaker = "DraftKings";
-        }
-
-        if (string.IsNullOrWhiteSpace(SelectedMarket))
-        {
-            SelectedMarket = "h2h";
-        }
-
-        var sportKey = SelectedSport.Trim();
-        var now = DateTimeOffset.UtcNow;
-
-        if (!forceRefresh && SportCache.TryGetValue(sportKey, out var cached) && now - cached.LoadedAt < SportCacheDuration)
-        {
-            AllOdds = cached.Rows.ToList();
-            SelectedTeam = "";
-            SelectedPlayer = "";
-            SelectedBookmaker = "DraftKings";
-            SelectedMarket = "h2h";
-            return;
-        }
-
-        try
-        {
-            IsLoading = true;
-
-            // This pulls the whole odds dataset for the selected sport,
-            // then all dropdown filters happen locally in memory.
-            var rows = await OddsApi.GetOddsForSportAsync(sportKey);
-            var cachedRows = rows.ToList();
-            SportCache[sportKey] = new CachedSportData(cachedRows, now);
-            AllOdds = cachedRows;
- 
-
-            SelectedTeam = "";
-            SelectedPlayer = "";
-            SelectedBookmaker = "DraftKings";
-            SelectedMarket = "h2h";
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
- 
-
-    private void ClearFilters()
-    {
-        SelectedTeam = "";
-        SelectedPlayer = "";
-        SelectedBookmaker = "DraftKings";
-        SelectedMarket = "h2h";
-    }
- 
-
-    private List<OddsRow> VisibleOdds =>
-        AllOdds
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedTeam) ||
-                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedPlayer) ||
-                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
-                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedMarket) ||
-                x.Market.Equals(SelectedMarket, StringComparison.OrdinalIgnoreCase))
-            .ToList();
- 
-
-    private List<string> FilteredTeams =>
-        AllOdds
-            .SelectMany(x => new[] { x.HomeTeam, x.AwayTeam, x.Team })
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
- 
-
-    private List<string> FilteredPlayers =>
-        AllOdds
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedTeam) ||
-                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.Player)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
- 
-
-    private List<string> FilteredMarkets =>
-        AllOdds
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedTeam) ||
-                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedPlayer) ||
-                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
-                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.Market)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
-
-    private List<string> FilteredBookmakers =>
-        AllOdds
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedTeam) ||
-                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
-                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
-            .Where(x =>
-                string.IsNullOrWhiteSpace(SelectedPlayer) ||
-                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.Bookmaker)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
- 
-
-    private string JsonPreview =>
-        OddsApi.ConvertRowsToJson(VisibleOdds.Take(25).ToList());
-    
-    private bool ShowTeamColumn =>
-        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Team));
-
-    private bool ShowPlayerColumn =>
-        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Player));
-
-    private bool ShowSelectionColumn =>
-        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Selection));
-
-    private bool ShowLineColumn =>
-        VisibleOdds.Any(x => x.Handicap.HasValue);
-
-    private bool ShowPriceColumn =>
-        VisibleOdds.Any(x => x.Price.HasValue);
-
-    private bool ShowOverColumn =>
-        VisibleOdds.Any(x => x.OverPrice.HasValue);
-
-    private bool ShowUnderColumn =>
-        VisibleOdds.Any(x => x.UnderPrice.HasValue);
-
-    private string LineHeader =>  "Line (" + (VisibleOdds.FirstOrDefault(x => x.Handicap.HasValue)?.Market ?? "Line") + ")";
+    private static readonly TimeSpan SportCacheDuration = TimeSpan.FromMinutes(2);
+    private const string DisplayTimeZoneId = "Central Standard Time"; // Change this to your desired timezone ID
+    private static readonly TimeZoneInfo DisplayTimeZone = ResolveTimeZone(DisplayTimeZoneId);
+    private readonly Dictionary<string, CachedSportData> SportCache = new(StringComparer.OrdinalIgnoreCase);
+    private List<SportOption> Sports = new();
+    private List<OddsRow> AllOdds = new();
+ 
 
 
-    private sealed class CachedSportData
-    {
-        public CachedSportData(List<OddsRow> rows, DateTimeOffset loadedAt)
-        {
-            Rows = rows;
-            LoadedAt = loadedAt;
-        }
+    private string? SelectedSport;
+    private string? SelectedTeam;
+    private string? SelectedPlayer;
+    private string SelectedBookmaker = "DraftKings";
+    private string SelectedMarket = "h2h";
+ 
 
-        public List<OddsRow> Rows { get; }
-        public DateTimeOffset LoadedAt { get; }
-    }
 
-    private static string FormatMatchDate(DateTimeOffset? matchDate)
-    {
-        if (matchDate == null)
-            return "_";
+    private bool IsLoading;
+    private string ErrorMessage = "";
+ 
 
-        var localInZone = TimeZoneInfo.ConvertTime(matchDate.Value, DisplayTimeZone);
-        return $"{localInZone:yyyy-MM-dd HH:mm} {GetTimeZoneAbbreviation(localInZone)}";
 
-    }
+    protected override async Task OnInitializedAsync()
+    {
+        Sports = await OddsApi.GetSportsAsync();
+    }
+ 
 
-    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
-    {
 
-        if (string.IsNullOrWhiteSpace(timeZoneId))
-            return TimeZoneInfo.Local;
+    private async Task LoadOddsAsync(bool forceRefresh = false)
+    {
+        ErrorMessage = "";
 
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-        }
-        catch
-        {
-            // Fallback to UTC if the specified timezone is not found
-            return TimeZoneInfo.Local;
-        }
-    }
 
-    private static string GetTimeZoneAbbreviation(DateTimeOffset dateTimeInZone)
-    {
-        var zoneName = DisplayTimeZone.IsDaylightSavingTime(dateTimeInZone.DateTime)
-            ? DisplayTimeZone.DaylightName
-            : DisplayTimeZone.StandardName;
-        
-        var initials = string.Concat(
-            zoneName
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Where(part => char.IsLetter(part[0]))
-                .Select(part => char.ToUpperInvariant(part[0])));
+        if (string.IsNullOrWhiteSpace(SelectedSport))
+        {
+            ErrorMessage = "Pick a sport first.";
+            return;
+        }
 
-        return string.IsNullOrWhiteSpace(initials) ? zoneName : initials;
-    }
+
+        if (string.IsNullOrWhiteSpace(SelectedBookmaker))
+        {
+            SelectedBookmaker = "DraftKings";
+        }
+
+
+        if (string.IsNullOrWhiteSpace(SelectedMarket))
+        {
+            SelectedMarket = "h2h";
+        }
+
+
+        var sportKey = (SelectedSport ?? string.Empty).Trim();
+        var now = DateTimeOffset.UtcNow;
+
+
+        if (!forceRefresh && SportCache.TryGetValue(sportKey, out var cached) && now - cached.LoadedAt < SportCacheDuration)
+        {
+            AllOdds = cached.Rows.ToList();
+            SelectedTeam = null;
+            SelectedPlayer = null;
+            SelectedBookmaker = "DraftKings";
+            SelectedMarket = "h2h";
+            return;
+        }
+
+
+        try
+        {
+            IsLoading = true;
+
+
+            // This pulls the whole odds dataset for the selected sport,
+            // then all dropdown filters happen locally in memory.
+            var rows = await OddsApi.GetOddsForSportAsync(sportKey);
+            var cachedRows = rows.ToList();
+            SportCache[sportKey] = new CachedSportData(cachedRows, now);
+            AllOdds = cachedRows;
+ 
+
+
+            SelectedTeam = null;
+            SelectedPlayer = null;
+            SelectedBookmaker = "DraftKings";
+            SelectedMarket = "h2h";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+ 
+
+
+    private void ClearFilters()
+    {
+        SelectedTeam = null;
+        SelectedPlayer = null;
+        SelectedBookmaker = "DraftKings";
+        SelectedMarket = "h2h";
+    }
+ 
+
+
+    private List<OddsRow> VisibleOdds =>
+        AllOdds
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPlayer) ||
+                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
+                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedMarket) ||
+                x.Market.Equals(SelectedMarket, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+ 
+
+
+    private List<string> FilteredTeams =>
+        AllOdds
+            .SelectMany(x => new[] { x.HomeTeam, x.AwayTeam, x.Team })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+ 
+
+
+    private List<string> FilteredPlayers =>
+        AllOdds
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Player)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+ 
+
+
+    private List<string> FilteredMarkets =>
+        AllOdds
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPlayer) ||
+                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
+                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Market)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+
+    private List<string> FilteredBookmakers =>
+        AllOdds
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPlayer) ||
+                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Bookmaker)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+ 
+
+
+    private string JsonPreview =>
+        OddsApi.ConvertRowsToJson(VisibleOdds.Take(25).ToList());
+   
+    private bool ShowTeamColumn =>
+        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Team));
+
+
+    private bool ShowPlayerColumn =>
+        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Player));
+
+
+    private bool ShowSelectionColumn =>
+        VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Selection));
+
+
+    private bool ShowLineColumn =>
+        VisibleOdds.Any(x => x.Handicap.HasValue);
+
+
+    private bool ShowPriceColumn =>
+        VisibleOdds.Any(x => x.Price.HasValue);
+
+
+    private bool ShowOverColumn =>
+        VisibleOdds.Any(x => x.OverPrice.HasValue);
+
+
+    private bool ShowUnderColumn =>
+        VisibleOdds.Any(x => x.UnderPrice.HasValue);
+
+
+    private string LineHeader =>  "Line (" + (VisibleOdds.FirstOrDefault(x => x.Handicap.HasValue)?.Market ?? "Line") + ")";
+
+
+
+    private sealed class CachedSportData
+    {
+        public CachedSportData(List<OddsRow> rows, DateTimeOffset loadedAt)
+        {
+            Rows = rows;
+            LoadedAt = loadedAt;
+        }
+
+
+        public List<OddsRow> Rows { get; }
+        public DateTimeOffset LoadedAt { get; }
+    }
+
+
+    private static string FormatMatchDate(DateTimeOffset? matchDate)
+    {
+        if (matchDate == null)
+            return "_";
+
+
+        var localInZone = TimeZoneInfo.ConvertTime(matchDate.Value, DisplayTimeZone);
+        return $"{localInZone:yyyy-MM-dd HH:mm} {GetTimeZoneAbbreviation(localInZone)}";
+
+
+    }
+
+
+    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
+    {
+
+
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return TimeZoneInfo.Local;
+
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch
+        {
+            // Fallback to UTC if the specified timezone is not found
+            return TimeZoneInfo.Local;
+        }
+    }
+
+
+    private static string GetTimeZoneAbbreviation(DateTimeOffset dateTimeInZone)
+    {
+        var zoneName = DisplayTimeZone.IsDaylightSavingTime(dateTimeInZone.DateTime)
+            ? DisplayTimeZone.DaylightName
+            : DisplayTimeZone.StandardName;
+       
+        var initials = string.Concat(
+            zoneName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(part => char.IsLetter(part[0]))
+                .Select(part => char.ToUpperInvariant(part[0])));
+
+
+        return string.IsNullOrWhiteSpace(initials) ? zoneName : initials;
+    }
+
 
 }
- 

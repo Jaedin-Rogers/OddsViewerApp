@@ -1,15 +1,30 @@
 using BlazorApp2.Components;
 using OddsViewerApp.Services;
+using MudBlazor.Services;
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddEnvironmentVariables();
+
+var secretApiKey = builder.Configuration["THE_ODDS_API_KEY"]
+    ?? builder.Configuration["OddsApi__ApiKey"];
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddMudServices();
 
 
-builder.Services.Configure<OddsApiOptions>(
-    builder.Configuration.GetSection("OddsApi"));
+
+builder.Services.Configure<OddsApiOptions>(options =>
+{
+    builder.Configuration.GetSection("OddsApi").Bind(options);
+
+    if (string.IsNullOrWhiteSpace(options.ApiKey) && !string.IsNullOrWhiteSpace(secretApiKey))
+    {
+        options.ApiKey = secretApiKey;
+    }
+});
 
 builder.Services.AddHttpClient<OddsApiService>((serviceProvider, client) =>
 {
