@@ -7,4 +7,7 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+<ItemGroup>
+    <PackageReference Include="MudBlazor" Version="8.8.4" />
+  </ItemGroup>
 </Project>

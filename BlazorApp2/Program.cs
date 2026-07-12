@@ -1,10 +1,13 @@
 using BlazorApp2.Components;
 using OddsViewerApp.Services;
+using MudBlazor.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
 
 
 
