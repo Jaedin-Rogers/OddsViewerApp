@@ -13,7 +13,7 @@ A Blazor Server web app for browsing live sports odds powered by the [The Odds A
 - Dynamic table columns — columns with all-null values (e.g. Over/Under on H2H markets) are hidden automatically
 - Match dates displayed in a configurable timezone with abbreviation (e.g. `2026-07-12 19:00 EDT`)
 - American odds format (configurable)
-- Pandas-ready JSON export preview
+- Pandas-ready JSON export preview (for future ML predictions)
 - MudBlazor UI with light/dark theme support
 
 
