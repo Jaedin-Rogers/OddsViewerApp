@@ -37,6 +37,7 @@ public sealed class OddsRow
 
     public string Team { get; set; } = "";
     public string Player { get; set; } = "";
+    public string PropCategory { get; set; } = "";
     public string Selection { get; set; } = "";
 
     public decimal? Handicap { get; set; }
