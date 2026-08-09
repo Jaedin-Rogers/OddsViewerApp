@@ -57,7 +57,7 @@ cd OddsViewerApp
 
 
 ```bash
-cd BlazorApp2
+cd TheOddsGame
 dotnet user-secrets init
 dotnet user-secrets set "OddsApi:ApiKey" "YOUR_API_KEY"
 ```
@@ -75,14 +75,14 @@ $env:OddsApi__ApiKey = "YOUR_API_KEY"
 **Option C — appsettings.json (not recommended for shared repos)**
 
 
-Edit `BlazorApp2/appsettings.json` and replace the `ApiKey` value. **Do not commit this file with a real key.**
+Edit TheOddsGame/appsettings.json` and replace the `ApiKey` value. **Do not commit this file with a real key.**
 
 
 ### 3. Run
 
 
 ```bash
-cd BlazorApp2
+cd TheOddsGame
 dotnet run
 ```
 
@@ -109,7 +109,7 @@ All options live under the `OddsApi` section in `appsettings.json`:
 ### Display timezone
 
 
-The match date column timezone is set in `BlazorApp2/Components/Pages/Odds.razor`:
+The match date column timezone is set in `TheOddsGame/Components/Pages/Odds.razor`:
 
 
 ```csharp
@@ -125,7 +125,7 @@ Replace with any Windows timezone ID (e.g. `"Central Standard Time"`, `"UTC"`, `
 
 ```
 OddsViewerApp/
-└── BlazorApp2/
+└── TheOddsGame/
     ├── Components/
     │   ├── Pages/
     │   │   └── Odds.razor          # Main odds viewer page
