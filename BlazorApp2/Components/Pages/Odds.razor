@@ -1,6 +1,8 @@
 @page "/"
 @page "/odds"
 @rendermode InteractiveServer
+@using System.Globalization
+@using System.Text.Json
 @using OddsViewerApp.Models
 @using OddsViewerApp.Services
 @inject OddsApiService OddsApi
@@ -69,6 +71,19 @@
                     }
                 </MudSelect>
             </MudItem>
+
+            @if (string.Equals(SelectedMarket, "player_props", StringComparison.OrdinalIgnoreCase))
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" @bind-Value="SelectedPropCategory" Label="Prop Category" Placeholder="All categories" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!FilteredPropCategories.Any())">
+                        <MudSelectItem Value="@string.Empty">All categories</MudSelectItem>
+                        @foreach (var category in FilteredPropCategories)
+                        {
+                            <MudSelectItem Value="@category">@category</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            }
         </MudGrid>
 
 
@@ -100,6 +115,52 @@
 
     @if (AllOdds.Any())
     {
+		@if (SelectedBets.Any())
+		{
+			<MudPaper Class="pa-4 mb-3" Outlined="true">
+				<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
+					<MudText Typo="Typo.h6">Selected Bets (@SelectedBets.Count)</MudText>
+					<MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="ClearSelectedBets">
+						Clear Selected Bets
+					</MudButton>
+				</MudStack>
+
+				<MudDataGrid T="OddsRow"
+							 Items="@SelectedBets.Take(200).ToList()"
+							 Dense="true"
+							 Striped="true"
+							 Hover="true"
+							 Height="280px"
+							 FixedHeader="true">
+					<Columns>
+						<TemplateColumn T="OddsRow" Title="Remove">
+							<CellTemplate>
+								<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
+											   Color="Color.Error"
+											   Size="Size.Small"
+											   OnClick="() => RemoveSelectedBet(context.Item)" />
+							</CellTemplate>
+						</TemplateColumn>
+						<PropertyColumn Property="x => x.EventName" Title="Event" />
+						<PropertyColumn Property="x => x.Bookmaker" Title="Bookmaker" />
+						<PropertyColumn Property="x => x.Market" Title="Market" />
+						<PropertyColumn Property="x => x.Player" Title="Player" />
+						<PropertyColumn Property="x => x.Selection" Title="Selection" />
+						<PropertyColumn Property="x => x.Handicap" Title="Line" />
+						<PropertyColumn Property="x => x.Price" Title="Price" />
+					</Columns>
+				</MudDataGrid>
+
+				<MudExpansionPanels Class="mt-3">
+					<MudExpansionPanel Text="Selected bets ML JSON dictionaries">
+						<MudPaper Outlined="true" Class="pa-3">
+							<pre style="max-height:320px; overflow:auto; margin:0;">@SelectedBetsMlJson</pre>
+						</MudPaper>
+					</MudExpansionPanel>
+				</MudExpansionPanels>
+			</MudPaper>
+		}
+
         <MudStack Row="true" Spacing="3" Class="mb-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudText Typo="Typo.body2"><strong>Total rows loaded:</strong> @AllOdds.Count</MudText>
             <MudText Typo="Typo.body2"><strong>Rows after filters:</strong> @VisibleOdds.Count</MudText>
@@ -123,6 +184,14 @@
                      Striped="true"
                      Hover="true">
             <Columns>
+				<TemplateColumn T="OddsRow" Title="Bet">
+					<CellTemplate>
+						<MudIconButton Icon="@(IsBetSelected(context.Item) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.AddCircleOutline)"
+									   Color="@(IsBetSelected(context.Item) ? Color.Success : Color.Default)"
+									   Size="Size.Small"
+									   OnClick="() => ToggleSelectedBet(context.Item)" />
+					</CellTemplate>
+				</TemplateColumn>
                 <TemplateColumn T="OddsRow" Title="Match Date">
                     <CellTemplate>
                         @FormatMatchDate(context.Item.MatchDate)
@@ -155,7 +224,14 @@
                 {
                     <TemplateColumn T="OddsRow" Title="@LineHeader">
                         <CellTemplate>
-                            @context.Item.Handicap
+                            @if (!string.IsNullOrWhiteSpace(context.Item.PropCategory))
+                            {
+                                @context.Item.PropCategory
+                            }
+                            else
+                            {
+                                @context.Item.Handicap
+                            }
                         </CellTemplate>
                     </TemplateColumn>
                 }
@@ -163,19 +239,37 @@
 
                 @if (ShowPriceColumn)
                 {
-                    <PropertyColumn Property="x => x.Price" Title="Price" />
+                    <TemplateColumn T="OddsRow" Title="Price">
+                        <CellTemplate>
+                            <span style="color:@GetOddsValueColor(context.Item.Price); font-weight:600;">
+                                @FormatOddsValue(context.Item.Price)
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
                 }
 
 
                 @if (ShowOverColumn)
                 {
-                    <PropertyColumn Property="x => x.OverPrice" Title="Over" />
+                    <TemplateColumn T="OddsRow" Title="Over">
+                        <CellTemplate>
+                            <span style="color:@GetOddsValueColor(context.Item.OverPrice); font-weight:600;">
+                                @FormatOddsValue(context.Item.OverPrice)
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
                 }
 
 
                 @if (ShowUnderColumn)
                 {
-                    <PropertyColumn Property="x => x.UnderPrice" Title="Under" />
+                    <TemplateColumn T="OddsRow" Title="Under">
+                        <CellTemplate>
+                            <span style="color:@GetOddsValueColor(context.Item.UnderPrice); font-weight:600;">
+                                @FormatOddsValue(context.Item.UnderPrice)
+                            </span>
+                        </CellTemplate>
+                    </TemplateColumn>
                 }
             </Columns>
         </MudDataGrid>
@@ -203,6 +297,7 @@
     private const string DisplayTimeZoneId = "Central Standard Time"; // Change this to your desired timezone ID
     private static readonly TimeZoneInfo DisplayTimeZone = ResolveTimeZone(DisplayTimeZoneId);
     private readonly Dictionary<string, CachedSportData> SportCache = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, OddsRow> SelectedBetsByKey = new(StringComparer.Ordinal);
     private List<SportOption> Sports = new();
     private List<OddsRow> AllOdds = new();
  
@@ -211,6 +306,7 @@
     private string? SelectedSport;
     private string? SelectedTeam;
     private string? SelectedPlayer;
+    private string? SelectedPropCategory;
     private string SelectedBookmaker = "DraftKings";
     private string SelectedMarket = "h2h";
  
@@ -261,6 +357,7 @@
             AllOdds = cached.Rows.ToList();
             SelectedTeam = null;
             SelectedPlayer = null;
+            SelectedPropCategory = null;
             SelectedBookmaker = "DraftKings";
             SelectedMarket = "h2h";
             return;
@@ -302,6 +399,7 @@
     {
         SelectedTeam = null;
         SelectedPlayer = null;
+        SelectedPropCategory = null;
         SelectedBookmaker = "DraftKings";
         SelectedMarket = "h2h";
     }
@@ -324,6 +422,9 @@
             .Where(x =>
                 string.IsNullOrWhiteSpace(SelectedMarket) ||
                 x.Market.Equals(SelectedMarket, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPropCategory) ||
+                x.PropCategory.Equals(SelectedPropCategory, StringComparison.OrdinalIgnoreCase))
             .ToList();
  
 
@@ -373,6 +474,27 @@
             .ToList();
 
 
+    private List<string> FilteredPropCategories =>
+        AllOdds
+            .Where(x => string.Equals(x.Market, "player_props", StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedTeam) ||
+                x.HomeTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.AwayTeam.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase) ||
+                x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedPlayer) ||
+                x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(SelectedBookmaker) ||
+                x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.PropCategory)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+
     private List<string> FilteredBookmakers =>
         AllOdds
             .Where(x =>
@@ -393,6 +515,81 @@
 
     private string JsonPreview =>
         OddsApi.ConvertRowsToJson(VisibleOdds.Take(25).ToList());
+
+	private List<OddsRow> SelectedBets =>
+		SelectedBetsByKey.Values
+			.OrderByDescending(x => x.MatchDate)
+			.ToList();
+
+	private string SelectedBetsMlJson =>
+		JsonSerializer.Serialize(
+			SelectedBets.Select(ToMlDictionary).ToList(),
+			new JsonSerializerOptions { WriteIndented = true });
+
+	private void ToggleSelectedBet(OddsRow row)
+	{
+		var key = GetBetKey(row);
+		if (!SelectedBetsByKey.Remove(key))
+			SelectedBetsByKey[key] = row;
+	}
+
+	private void RemoveSelectedBet(OddsRow row)
+	{
+		SelectedBetsByKey.Remove(GetBetKey(row));
+	}
+
+	private void ClearSelectedBets()
+	{
+		SelectedBetsByKey.Clear();
+	}
+
+	private bool IsBetSelected(OddsRow row)
+	{
+		return SelectedBetsByKey.ContainsKey(GetBetKey(row));
+	}
+
+	private static string GetBetKey(OddsRow row)
+	{
+		return string.Join("|", new[]
+		{
+			row.EventId,
+			row.Bookmaker,
+			row.Market,
+			row.Team,
+			row.Player,
+			row.PropCategory,
+			row.Selection,
+			row.Handicap?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+			row.Price?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+			row.OverPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+			row.UnderPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty
+		});
+	}
+
+	private static Dictionary<string, object?> ToMlDictionary(OddsRow row)
+	{
+		return new Dictionary<string, object?>
+		{
+			["match_date"] = row.MatchDate?.ToString("O"),
+			["sport"] = row.Sport,
+			["league"] = row.League,
+			["event_id"] = row.EventId,
+			["event_name"] = row.EventName,
+			["home_team"] = row.HomeTeam,
+			["away_team"] = row.AwayTeam,
+			["bookmaker"] = row.Bookmaker,
+			["market"] = row.Market,
+			["team"] = row.Team,
+			["player"] = row.Player,
+			["prop_category"] = row.PropCategory,
+			["selection"] = row.Selection,
+			["line"] = row.Handicap,
+			["price"] = row.Price,
+			["over_price"] = row.OverPrice,
+			["under_price"] = row.UnderPrice,
+			["last_updated"] = row.LastUpdated?.ToString("O")
+		};
+	}
    
     private bool ShowTeamColumn =>
         VisibleOdds.Any(x => !string.IsNullOrWhiteSpace(x.Team));
@@ -407,7 +604,7 @@
 
 
     private bool ShowLineColumn =>
-        VisibleOdds.Any(x => x.Handicap.HasValue);
+        VisibleOdds.Any(x => x.Handicap.HasValue || !string.IsNullOrWhiteSpace(x.PropCategory));
 
 
     private bool ShowPriceColumn =>
@@ -422,7 +619,10 @@
         VisibleOdds.Any(x => x.UnderPrice.HasValue);
 
 
-    private string LineHeader =>  "Line (" + (VisibleOdds.FirstOrDefault(x => x.Handicap.HasValue)?.Market ?? "Line") + ")";
+    private string LineHeader =>
+        string.Equals(SelectedMarket, "player_props", StringComparison.OrdinalIgnoreCase)
+            ? "Prop Category"
+            : "Line (" + (VisibleOdds.FirstOrDefault(x => x.Handicap.HasValue)?.Market ?? "Line") + ")";
 
 
 
@@ -450,6 +650,27 @@
         return $"{localInZone:yyyy-MM-dd HH:mm} {GetTimeZoneAbbreviation(localInZone)}";
 
 
+    }
+
+
+    private static string FormatOddsValue(decimal? value)
+    {
+        if (!value.HasValue)
+            return string.Empty;
+
+        return value.Value.ToString("+#;-#;0", CultureInfo.InvariantCulture);
+    }
+
+
+    private static string GetOddsValueColor(decimal? value)
+    {
+        if (value is > 0)
+            return "var(--mud-palette-error)";
+
+        if (value is < 0)
+            return "var(--mud-palette-success)";
+
+        return "inherit";
     }
 
 

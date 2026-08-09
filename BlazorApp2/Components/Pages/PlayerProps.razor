@@ -1,0 +1,528 @@
+@page "/player-props"
+@rendermode InteractiveServer
+@using System.Globalization
+@using System.Text.Json
+@using OddsViewerApp.Models
+@using OddsViewerApp.Services
+@inject OddsApiService OddsApi
+
+<PageTitle>Player Props</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-1">Player Props</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Select a sport, then an event, then a supported props market key.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Outlined="true">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Value="SelectedSport" ValueChanged="OnSportChanged" Label="Sport" Placeholder="Select sport" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@string.Empty">-- Select sport --</MudSelectItem>
+                    @foreach (var sport in Sports)
+                    {
+                        <MudSelectItem Value="@sport.Key">@sport.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="5">
+                <MudSelect T="string" Value="SelectedEventId" ValueChanged="OnEventChanged" Label="Event" Placeholder="Select event" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!Events.Any())">
+                    <MudSelectItem Value="@string.Empty">-- Select event --</MudSelectItem>
+                    @foreach (var ev in Events)
+                    {
+                        <MudSelectItem Value="@ev.Id">@EventLabel(ev)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" @bind-Value="SelectedMarketKey" Label="Props Market" Placeholder="Select market" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!PropMarkets.Any())">
+                    <MudSelectItem Value="@string.Empty">-- Select market --</MudSelectItem>
+                    @foreach (var market in PropMarkets)
+                    {
+                        <MudSelectItem Value="@market">@market</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedBookmaker" Label="Bookmaker" Placeholder="All bookmakers" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!Bookmakers.Any())">
+                    <MudSelectItem Value="@string.Empty">All bookmakers</MudSelectItem>
+                    @foreach (var bookmaker in Bookmakers)
+                    {
+                        <MudSelectItem Value="@bookmaker">@bookmaker</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" @bind-Value="SelectedPlayer" Label="Player" Placeholder="All players" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!Players.Any())">
+                    <MudSelectItem Value="@string.Empty">All players</MudSelectItem>
+                    @foreach (var player in Players)
+                    {
+                        <MudSelectItem Value="@player">@player</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-4" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadPropsAsync" Disabled="@IsLoading">
+                @(IsLoading ? "Loading..." : "Load Player Props")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="ClearFilters" Disabled="@IsLoading">
+                Clear Filters
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (IsLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@ErrorMessage</MudAlert>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(InfoMessage))
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">@InfoMessage</MudAlert>
+    }
+
+    @if (AllRows.Any())
+    {
+        @if (SelectedBets.Any())
+        {
+            <MudPaper Class="pa-4 mb-3" Outlined="true">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
+                    <MudText Typo="Typo.h6">Selected Bets (@SelectedBets.Count)</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="ClearSelectedBets">
+                        Clear Selected Bets
+                    </MudButton>
+                </MudStack>
+
+                <MudDataGrid T="OddsRow"
+                             Items="@SelectedBets.Take(200).ToList()"
+                             Dense="true"
+                             Striped="true"
+                             Hover="true"
+                             Height="280px"
+                             FixedHeader="true">
+                    <Columns>
+                        <TemplateColumn T="OddsRow" Title="Remove">
+                            <CellTemplate>
+                                <MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="() => RemoveSelectedBet(context.Item)" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.EventName" Title="Event" />
+                        <PropertyColumn Property="x => x.Bookmaker" Title="Bookmaker" />
+                        <PropertyColumn Property="x => x.Market" Title="Market" />
+                        <PropertyColumn Property="x => x.Player" Title="Player" />
+                        <PropertyColumn Property="x => x.Selection" Title="Selection" />
+                        <PropertyColumn Property="x => x.Handicap" Title="Line" />
+                        <PropertyColumn Property="x => x.Price" Title="Price" />
+                    </Columns>
+                </MudDataGrid>
+
+                <MudExpansionPanels Class="mt-3">
+                    <MudExpansionPanel Text="Selected bets ML JSON dictionaries">
+                        <MudPaper Outlined="true" Class="pa-3">
+                            <pre style="max-height:320px; overflow:auto; margin:0;">@SelectedBetsMlJson</pre>
+                        </MudPaper>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudPaper>
+        }
+
+        <MudStack Row="true" Spacing="3" Class="mb-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2"><strong>Total rows loaded:</strong> @AllRows.Count</MudText>
+            <MudText Typo="Typo.body2"><strong>Rows after filters:</strong> @VisibleRows.Count</MudText>
+        </MudStack>
+
+        <MudExpansionPanels Class="mb-3">
+            <MudExpansionPanel Text="Pandas-ready JSON preview">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <pre style="max-height:350px; overflow:auto; margin:0;">@OddsApi.ConvertRowsToJson(VisibleRows.Take(25).ToList())</pre>
+                </MudPaper>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudDataGrid T="OddsRow"
+                     Items="@VisibleRows.Take(300).ToList()"
+                     Height="690px"
+                     FixedHeader="true"
+                     Dense="true"
+                     Striped="true"
+                     Hover="true">
+            <Columns>
+                <TemplateColumn T="OddsRow" Title="Bet">
+                    <CellTemplate>
+                        <MudIconButton Icon="@(IsBetSelected(context.Item) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.AddCircleOutline)"
+                                       Color="@(IsBetSelected(context.Item) ? Color.Success : Color.Default)"
+                                       Size="Size.Small"
+                                       OnClick="() => ToggleSelectedBet(context.Item)" />
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn T="OddsRow" Title="Match Date">
+                    <CellTemplate>
+                        @FormatMatchDate(context.Item.MatchDate)
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.EventName" Title="Event" />
+                <PropertyColumn Property="x => x.Bookmaker" Title="Bookmaker" />
+                <PropertyColumn Property="x => x.Market" Title="Market" />
+                <PropertyColumn Property="x => x.Player" Title="Player" />
+                <PropertyColumn Property="x => x.Selection" Title="Selection" />
+                <PropertyColumn Property="x => x.Handicap" Title="Line" />
+                <TemplateColumn T="OddsRow" Title="Price">
+                    <CellTemplate>
+                        <span style="color:@GetOddsValueColor(context.Item.Price); font-weight:600;">
+                            @FormatOddsValue(context.Item.Price)
+                        </span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+
+        @if (VisibleRows.Count > 300)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-3">
+                Showing first 300 rows. Filters still apply to the full loaded dataset.
+            </MudAlert>
+        }
+    }
+    else if (!IsLoading)
+    {
+        <MudAlert Severity="Severity.Normal">No player props loaded yet.</MudAlert>
+    }
+</MudContainer>
+
+@code {
+    private const string DisplayTimeZoneId = "Central Standard Time";
+    private static readonly TimeZoneInfo DisplayTimeZone = ResolveTimeZone(DisplayTimeZoneId);
+
+    private List<SportOption> Sports = new();
+    private List<EventOption> Events = new();
+    private List<string> PropMarkets = new();
+    private List<OddsRow> AllRows = new();
+    private readonly Dictionary<string, OddsRow> SelectedBetsByKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<string>> EventMarketsCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<OddsRow>> EventPropsCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private string? SelectedSport;
+    private string? SelectedEventId;
+    private string? SelectedMarketKey;
+    private string? SelectedBookmaker;
+    private string? SelectedPlayer;
+
+    private bool IsLoading;
+    private string ErrorMessage = "";
+    private string InfoMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Sports = await OddsApi.GetSportsAsync();
+    }
+
+    private async Task OnSportChanged(string? sport)
+    {
+        SelectedSport = sport;
+        SelectedEventId = null;
+        SelectedMarketKey = null;
+        SelectedBookmaker = null;
+        SelectedPlayer = null;
+        Events = new List<EventOption>();
+        PropMarkets = new List<string>();
+        AllRows = new List<OddsRow>();
+        ErrorMessage = "";
+        InfoMessage = "";
+
+        if (string.IsNullOrWhiteSpace(SelectedSport))
+            return;
+
+        try
+        {
+            IsLoading = true;
+            Events = await OddsApi.GetEventsForSportAsync(SelectedSport);
+            if (!Events.Any())
+                InfoMessage = "No active events found for this sport.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task OnEventChanged(string? eventId)
+    {
+        SelectedEventId = eventId;
+        SelectedMarketKey = null;
+        SelectedBookmaker = null;
+        SelectedPlayer = null;
+        PropMarkets = new List<string>();
+        AllRows = new List<OddsRow>();
+        ErrorMessage = "";
+        InfoMessage = "";
+
+        if (string.IsNullOrWhiteSpace(SelectedSport) || string.IsNullOrWhiteSpace(SelectedEventId))
+            return;
+
+        try
+        {
+            IsLoading = true;
+            var cacheKey = GetEventCacheKey(SelectedSport, SelectedEventId);
+            if (!EventMarketsCache.TryGetValue(cacheKey, out var allMarkets))
+            {
+                allMarkets = await OddsApi.GetEventMarketsAsync(SelectedSport, SelectedEventId);
+                EventMarketsCache[cacheKey] = allMarkets;
+            }
+
+            PropMarkets = allMarkets
+                .Where(OddsApiService.IsPlayerPropMarketKey)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!PropMarkets.Any())
+                InfoMessage = "No player props markets are currently available for this event.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadPropsAsync()
+    {
+        ErrorMessage = "";
+        InfoMessage = "";
+
+        if (string.IsNullOrWhiteSpace(SelectedSport) || string.IsNullOrWhiteSpace(SelectedEventId))
+        {
+            ErrorMessage = "Pick a sport and event first.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedMarketKey))
+        {
+            ErrorMessage = "Pick a props market first.";
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            var cacheKey = GetPropsCacheKey(SelectedSport, SelectedEventId, SelectedMarketKey);
+            if (!EventPropsCache.TryGetValue(cacheKey, out var rows))
+            {
+                rows = await OddsApi.GetEventOddsForMarketsAsync(SelectedSport, SelectedEventId, new[] { SelectedMarketKey });
+                EventPropsCache[cacheKey] = rows;
+            }
+
+            AllRows = rows
+                .Where(r => OddsApiService.IsPlayerPropMarketKey(r.Market))
+                .ToList();
+
+            if (!AllRows.Any())
+                InfoMessage = "No player props rows returned for this selection.";
+            else if (EventPropsCache.ContainsKey(cacheKey))
+                InfoMessage = "Loaded from cache.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        SelectedBookmaker = null;
+        SelectedPlayer = null;
+    }
+
+    private static string GetEventCacheKey(string? sport, string? eventId)
+        => $"{sport?.Trim().ToLowerInvariant()}::{eventId?.Trim().ToLowerInvariant()}";
+
+    private static string GetPropsCacheKey(string? sport, string? eventId, string? marketKey)
+        => $"{sport?.Trim().ToLowerInvariant()}::{eventId?.Trim().ToLowerInvariant()}::{marketKey?.Trim().ToLowerInvariant()}";
+
+    private List<OddsRow> VisibleRows =>
+        AllRows
+            .Where(x => string.IsNullOrWhiteSpace(SelectedBookmaker) || x.Bookmaker.Equals(SelectedBookmaker, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(SelectedPlayer) || x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private List<OddsRow> SelectedBets =>
+        SelectedBetsByKey.Values
+            .OrderByDescending(x => x.MatchDate)
+            .ToList();
+
+    private string SelectedBetsMlJson =>
+        JsonSerializer.Serialize(
+            SelectedBets.Select(ToMlDictionary).ToList(),
+            new JsonSerializerOptions { WriteIndented = true });
+
+    private void ToggleSelectedBet(OddsRow row)
+    {
+        var key = GetBetKey(row);
+        if (!SelectedBetsByKey.Remove(key))
+            SelectedBetsByKey[key] = row;
+    }
+
+    private void RemoveSelectedBet(OddsRow row)
+    {
+        SelectedBetsByKey.Remove(GetBetKey(row));
+    }
+
+    private void ClearSelectedBets()
+    {
+        SelectedBetsByKey.Clear();
+    }
+
+    private bool IsBetSelected(OddsRow row)
+    {
+        return SelectedBetsByKey.ContainsKey(GetBetKey(row));
+    }
+
+    private static string GetBetKey(OddsRow row)
+    {
+        return string.Join("|", new[]
+        {
+            row.EventId,
+            row.Bookmaker,
+            row.Market,
+            row.Team,
+            row.Player,
+            row.PropCategory,
+            row.Selection,
+            row.Handicap?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            row.Price?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            row.OverPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            row.UnderPrice?.ToString(CultureInfo.InvariantCulture) ?? string.Empty
+        });
+    }
+
+    private static Dictionary<string, object?> ToMlDictionary(OddsRow row)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["match_date"] = row.MatchDate?.ToString("O"),
+            ["sport"] = row.Sport,
+            ["league"] = row.League,
+            ["event_id"] = row.EventId,
+            ["event_name"] = row.EventName,
+            ["home_team"] = row.HomeTeam,
+            ["away_team"] = row.AwayTeam,
+            ["bookmaker"] = row.Bookmaker,
+            ["market"] = row.Market,
+            ["team"] = row.Team,
+            ["player"] = row.Player,
+            ["prop_category"] = row.PropCategory,
+            ["selection"] = row.Selection,
+            ["line"] = row.Handicap,
+            ["price"] = row.Price,
+            ["over_price"] = row.OverPrice,
+            ["under_price"] = row.UnderPrice,
+            ["last_updated"] = row.LastUpdated?.ToString("O")
+        };
+    }
+
+    private List<string> Bookmakers =>
+        AllRows
+            .Select(x => x.Bookmaker)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+    private List<string> Players =>
+        AllRows
+            .Select(x => x.Player)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+    private static string EventLabel(EventOption ev)
+    {
+        var time = ev.StartTime.HasValue
+            ? FormatMatchDate(ev.StartTime)
+            : "TBD";
+
+        return $"{ev.DisplayName} ({time})";
+    }
+
+    private static string FormatMatchDate(DateTimeOffset? matchDate)
+    {
+        if (matchDate == null)
+            return "_";
+
+        var localInZone = TimeZoneInfo.ConvertTime(matchDate.Value, DisplayTimeZone);
+        return $"{localInZone:yyyy-MM-dd HH:mm} {GetTimeZoneAbbreviation(localInZone)}";
+    }
+
+    private static string FormatOddsValue(decimal? value)
+    {
+        if (!value.HasValue)
+            return string.Empty;
+
+        return value.Value.ToString("+#;-#;0", CultureInfo.InvariantCulture);
+    }
+
+    private static string GetOddsValueColor(decimal? value)
+    {
+        if (value is > 0)
+            return "var(--mud-palette-error)";
+
+        if (value is < 0)
+            return "var(--mud-palette-success)";
+
+        return "inherit";
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return TimeZoneInfo.Local;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+
+    private static string GetTimeZoneAbbreviation(DateTimeOffset dateTime)
+    {
+        var zoneName = DisplayTimeZone.IsDaylightSavingTime(dateTime.DateTime)
+            ? DisplayTimeZone.DaylightName
+            : DisplayTimeZone.StandardName;
+
+        return zoneName switch
+        {
+            "Central Standard Time" => "CST",
+            "Central Daylight Time" => "CDT",
+            _ => zoneName
+        };
+    }
+}
