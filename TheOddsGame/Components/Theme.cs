@@ -1,7 +1,7 @@
 using MudBlazor;
 
 
-namespace BlazorApp2.Components;
+namespace TheOddsGame.Components;
 
 
 public static class Theme
