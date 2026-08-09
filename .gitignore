@@ -461,3 +461,5 @@ Desktop.ini
 # wwwroot bootstrap
 wwwroot/lib/
 wwwroot/js/
+**/wwwroot/lib/
+**/wwwroot/js/
