@@ -1,0 +1,46 @@
+name: Sync Single Player Dimension
+
+on:
+  workflow_dispatch:
+    inputs:
+      first_name:
+        description: 'Player first name (required)'
+        required: true
+        default: ''
+      last_name:
+        description: 'Player last name (required)'
+        required: true
+        default: ''
+
+jobs:
+  sync_single_player:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Sync Single Player Script
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+        run: |
+          python TheOddsGame/ETLService/SyncDim.py \
+            --process SyncPlayers \
+            --single 1 \
+            --first_name "${{ github.event.inputs.first_name }}" \
+            --last_name "${{ github.event.inputs.last_name }}"
