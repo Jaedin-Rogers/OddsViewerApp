@@ -1,11 +1,15 @@
-name: Daily NBA Sync (Game & Player Logs)
+name: Daily NBA Sync (Game, Team & Player Logs)
 
 on:
   schedule:
-    # 10:00 UTC is 4:00 AM CST / 5:00 AM CDT (or 09:00 UTC for 4:00 AM CDT)
+    # 10:00 UTC is 4:00 AM CST / 5:00 AM CDT
     - cron: '0 10 * * *'
   workflow_dispatch:
     inputs:
+      season:
+        description: 'Season year (e.g. 2026, 2025-26, 2024-25). Defaults to 2026 if empty.'
+        required: false
+        default: '2026'
       start_date:
         description: 'Start date (YYYY-MM-DD, optional override)'
         required: false
@@ -32,22 +36,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas sqlalchemy "psycopg[binary]" python-dotenv balldontlie nba_api
 
-      - name: Compute Current Date Window
-        id: date_calc
+      - name: Compute Execution Parameters
+        id: params
         run: |
-          # Default to syncing the last 3 days through today to catch stat adjustments
+          # 1. Date window (defaults to last 3 days through today for daily stat adjustment catches)
           TODAY=$(date -u +'%Y-%m-%d')
           START_3D=$(date -u -d "3 days ago" +'%Y-%m-%d' 2>/dev/null || date -u -v-3d +'%Y-%m-%d')
           
           START="${{ github.event.inputs.start_date }}"
           END="${{ github.event.inputs.end_date }}"
+          SEASON="${{ github.event.inputs.season }}"
           
           if [ -z "$START" ]; then START="$START_3D"; fi
           if [ -z "$END" ]; then END="$TODAY"; fi
+          if [ -z "$SEASON" ]; then SEASON="2026"; fi
           
+          # Extract 4-digit start year for BDL (e.g. "2025-26" -> 2025, "2026" -> 2026)
+          BDL_SEASON=$(echo "$SEASON" | cut -d'-' -f1)
+
           echo "start_date=$START" >> $GITHUB_OUTPUT
           echo "end_date=$END" >> $GITHUB_OUTPUT
-          echo "Syncing window: $START to $END"
+          echo "season=$SEASON" >> $GITHUB_OUTPUT
+          echo "bdl_season=$BDL_SEASON" >> $GITHUB_OUTPUT
+          
+          echo "Running with Season: $SEASON (BDL: $BDL_SEASON), Date Range: $START to $END"
 
       - name: 1. Sync Game Log (update_gamelog.py)
         working-directory: ./TheOddsGame/ETLService
@@ -60,8 +72,9 @@ jobs:
           BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
         run: |
           python update_gamelog.py \
-            --start_date "${{ steps.date_calc.outputs.start_date }}" \
-            --end_date "${{ steps.date_calc.outputs.end_date }}"
+            --seasons "${{ steps.params.outputs.bdl_season }}" \
+            --start_date "${{ steps.params.outputs.start_date }}" \
+            --end_date "${{ steps.params.outputs.end_date }}"
 
       - name: 2. Sync Team Log (update_teamlog.py)
         working-directory: ./TheOddsGame/ETLService
@@ -73,8 +86,9 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           python update_teamlog.py \
-            --start_date "${{ steps.date_calc.outputs.start_date }}" \
-            --end_date "${{ steps.date_calc.outputs.end_date }}"
+            --season "${{ steps.params.outputs.season }}" \
+            --start_date "${{ steps.params.outputs.start_date }}" \
+            --end_date "${{ steps.params.outputs.end_date }}"
 
       - name: 3. Sync Player Log (update_playerlog.py)
         working-directory: ./TheOddsGame/ETLService
@@ -86,5 +100,6 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           python update_playerlog.py \
-            --start_date "${{ steps.date_calc.outputs.start_date }}" \
-            --end_date "${{ steps.date_calc.outputs.end_date }}"
+            --season "${{ steps.params.outputs.season }}" \
+            --start_date "${{ steps.params.outputs.start_date }}" \
+            --end_date "${{ steps.params.outputs.end_date }}"
