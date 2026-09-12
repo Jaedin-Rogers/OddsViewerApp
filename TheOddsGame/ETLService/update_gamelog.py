@@ -204,7 +204,7 @@ def sync_games(
                 "awayteamId", "awayteamCity", "awayteamName",
                 "homeScore", "awayScore", winner, "gameType"
             )
-            SELECT 
+            SELECT DISTINCT ON (stg."gameId")
                 stg."gameId", stg."gameDateTimeEst", stg."gameDate",
                 stg."hometeamId", stg."hometeamCity", stg."hometeamName",
                 stg."awayteamId", stg."awayteamCity", stg."awayteamName",
