@@ -436,30 +436,11 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# Testing python notebook
+Playground.ipynb
 
 # AppSettings - Temp until CyberArk implemented
 appsettings.json
 appsettings.Development.json
-
-
-# Project-specific local configuration
-BlazerApp2/appsettings.Local.json
-BlazerApp2//appsettings.*.local.json
-
-
-# Editor and IDE folders
-.vscode/
-.idea/
-
-
-# OS-generated files
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-
-# wwwroot bootstrap
-wwwroot/lib/
-wwwroot/js/
-**/wwwroot/lib/
-**/wwwroot/js/
+projectsettings.json
+.env
