@@ -198,16 +198,28 @@ def sync_team_logs(
         # Match gameId from game_dim using date and home/away team combinations
         conn.execute(text("""
             UPDATE team._stg_team_log stg
-            SET "db_gameId" = g."gameId",
-                "gameDateTimeEst" = g."gameDateTimeEst",
-                "gameType" = g."gameType"
-            FROM game.game_dim g
-            WHERE g."gameDate" = stg."gameDate"
-              AND (
-                  (g."hometeamId" = stg."teamId" AND g."awayteamId" = stg.opponentteamid)
-                  OR
-                  (g."awayteamId" = stg."teamId" AND g."hometeamId" = stg.opponentteamid)
-              );
+            SET "db_gameId" = matched.selected_game_id,
+                "gameDateTimeEst" = matched.selected_datetime,
+                "gameType" = matched.selected_gametype
+            FROM (
+                SELECT DISTINCT ON (stg_inner."teamId", stg_inner."gameDate")
+                    stg_inner."teamId",
+                    stg_inner."gameDate",
+                    g."gameId" AS selected_game_id,
+                    g."gameDateTimeEst" AS selected_datetime,
+                    g."gameType" AS selected_gametype
+                FROM team._stg_team_log stg_inner
+                JOIN game.game_dim g
+                  ON g."gameDate"::date = stg_inner."gameDate"::date
+                 AND (
+                     (g."hometeamId" = stg_inner."teamId" AND g."awayteamId" = stg_inner.opponentteamid)
+                     OR
+                     (g."awayteamId" = stg_inner."teamId" AND g."hometeamId" = stg_inner.opponentteamid)
+                 )
+                ORDER BY stg_inner."teamId", stg_inner."gameDate", LENGTH(g."gameDateTimeEst") DESC
+            ) matched
+            WHERE stg."teamId" = matched."teamId"
+              AND stg."gameDate" = matched."gameDate";
         """))
 
         # 2. Log & Remove records that couldn't match team_dim or game_dim
@@ -225,12 +237,13 @@ def sync_team_logs(
         """))
         log_sample_results("Skipped Team Logs (No Matching gameId in game_dim)", res_skipped_games)
 
-        # 3. Clear existing logs for matching ("teamId", "gameId")
+        # 3. Clear existing logs for matching team and date
         conn.execute(text("""
             DELETE FROM team.team_log tl
-            USING team._stg_team_log stg
+            USING team._stg_team_log stg, game.game_dim g
             WHERE tl."teamId" = stg."teamId"
-              AND tl."gameId" = stg."db_gameId";
+              AND tl."gameId" = g."gameId"
+              AND g."gameDate"::date = stg."gameDate"::date;
         """))
 
         # 4. Insert transformed team logs
