@@ -155,8 +155,13 @@ def sync_games(
     # Derive fields matching game.game_dim
     df_transformed = pd.DataFrame()
     df_transformed["gameId"] = df_raw["id"]
-    df_transformed["gameDateTimeEst"] = df_raw["datetime"].fillna(df_raw["date"])
-    df_transformed["gameDate"] = df_raw["date"]
+
+    # Ensure gameDate is strictly YYYY-MM-DD
+    df_transformed["gameDate"] = pd.to_datetime(df_raw["date"], errors="coerce").dt.strftime("%Y-%m-%d").fillna(df_raw["date"])
+
+    # Ensure gameDateTimeEst is formatted consistently
+    raw_datetime = pd.to_datetime(df_raw["datetime"].fillna(df_raw["date"]), errors="coerce")
+    df_transformed["gameDateTimeEst"] = raw_datetime.dt.strftime("%Y-%m-%d %H:%M:%S").fillna(df_raw["date"])
     
     df_transformed["hometeamId"] = df_raw["home_team.id"]
     df_transformed["hometeamCity"] = df_raw["home_team.city"]

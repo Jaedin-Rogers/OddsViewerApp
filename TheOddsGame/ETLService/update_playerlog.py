@@ -145,6 +145,10 @@ def sync_player_logs(
     df_transformed["numMinutes"] = df_raw["MIN"].astype(str)
     df_transformed["points"] = pd.to_numeric(df_raw["PTS"], errors="coerce")
     df_transformed["assists"] = pd.to_numeric(df_raw["AST"], errors="coerce")
+    df_transformed["steals"] = pd.to_numeric(df_raw["STL"], errors="coerce")
+    df_transformed["turnovers"] = pd.to_numeric(df_raw["TOV"], errors="coerce")
+    df_transformed["blocks"] = pd.to_numeric(df_raw["BLK"], errors="coerce")
+    df_transformed["plusminus"] = pd.to_numeric(df_raw["PLUS_MINUS"], errors="coerce")
     df_transformed["reboundsTotal"] = pd.to_numeric(df_raw["REB"], errors="coerce")
     df_transformed["reboundsOffensive"] = pd.to_numeric(df_raw["OREB"], errors="coerce")
     df_transformed["reboundsDefensive"] = pd.to_numeric(df_raw["DREB"], errors="coerce")
@@ -214,16 +218,28 @@ def sync_player_logs(
         # Match gameId from game_dim using date and teams
         conn.execute(text("""
             UPDATE play._stg_player_log stg
-            SET "db_gameId" = g."gameId",
-                "gameDateTimeEst" = g."gameDateTimeEst",
-                "gameType" = g."gameType"
-            FROM game.game_dim g
-            WHERE g."gameDate" = stg."gameDate"
-              AND (
-                  (g."hometeamId" = stg."playerteamId" AND g."awayteamId" = stg."opponentteamId")
-                  OR
-                  (g."awayteamId" = stg."playerteamId" AND g."hometeamId" = stg."opponentteamId")
-              );
+            SET "db_gameId" = matched.selected_game_id,
+                "gameDateTimeEst" = matched.selected_datetime,
+                "gameType" = matched.selected_gametype
+            FROM (
+                SELECT DISTINCT ON (stg_inner.nba_player_id, stg_inner.nba_game_id)
+                    stg_inner.nba_player_id,
+                    stg_inner.nba_game_id,
+                    g."gameId" AS selected_game_id,
+                    g."gameDateTimeEst" AS selected_datetime,
+                    g."gameType" AS selected_gametype
+                FROM play._stg_player_log stg_inner
+                JOIN game.game_dim g
+                  ON g."gameDate"::date = stg_inner."gameDate"::date
+                 AND (
+                     (g."hometeamId" = stg_inner."playerteamId" AND g."awayteamId" = stg_inner."opponentteamId")
+                     OR
+                     (g."awayteamId" = stg_inner."playerteamId" AND g."hometeamId" = stg_inner."opponentteamId")
+                 )
+                ORDER BY stg_inner.nba_player_id, stg_inner.nba_game_id, LENGTH(g."gameDateTimeEst") DESC
+            ) matched
+            WHERE stg.nba_player_id = matched.nba_player_id
+              AND stg.nba_game_id = matched.nba_game_id;
         """))
 
         # 2. Log & Remove records that couldn't match player_dim or game_dim
@@ -241,12 +257,13 @@ def sync_player_logs(
         """))
         log_sample_results("Skipped Player Logs (No Matching gameId in game_dim)", res_skipped_games)
 
-        # 3. Clear existing logs for matching (playerindex, gameId)
+        # 3. Clear existing logs for matching player and date
         conn.execute(text("""
             DELETE FROM play.player_log pl
-            USING play._stg_player_log stg
+            USING play._stg_player_log stg, game.game_dim g
             WHERE pl.playerindex = stg.playerindex
-              AND pl."gameId" = stg."db_gameId";
+              AND pl."gameId" = g."gameId"
+              AND g."gameDate"::date = stg."gameDate"::date;
         """))
 
         # 4. Insert transformed player logs
@@ -257,7 +274,7 @@ def sync_player_logs(
                 win, home,
                 playerteamid, "playerteamCity", "playerteamName",
                 opponentteamid, "opponentteamCity", "opponentteamName",
-                "numMinutes", points, assists,
+                "numMinutes", points, assists, steals, turnovers, blocks, "plusminus",
                 "reboundsTotal", "reboundsOffensive", "reboundsDefensive",
                 "fieldGoalsMade", "fieldGoalsAttempted", "fieldGoalsPercentage",
                 "threePointersMade", "threePointersAttempted", "threePointersPercentage",
@@ -282,6 +299,10 @@ def sync_player_logs(
                 stg."numMinutes",
                 stg.points,
                 stg.assists,
+                stg.steals,
+                stg.turnovers,
+                stg.blocks,
+                stg."plusminus",
                 stg."reboundsTotal",
                 stg."reboundsOffensive",
                 stg."reboundsDefensive",
@@ -295,7 +316,7 @@ def sync_player_logs(
                 stg."freeThrowsAttempted",
                 stg."freeThrowsPercentage"
             FROM play._stg_player_log stg
-            RETURNING "gameId", "firstName", "lastName", points, assists, "reboundsTotal", "numMinutes";
+            RETURNING "gameId", "firstName", "lastName", points, assists, steals, turnovers, blocks, "plusminus", "reboundsTotal", "numMinutes";
         """))
 
         log_sample_results("play.player_log INSERTS / UPDATES", insert_res)

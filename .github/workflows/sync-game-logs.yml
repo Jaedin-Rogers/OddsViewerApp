@@ -1,9 +1,9 @@
-name: Daily NBA Sync (Game, Team & Player Logs)
+name: Daily NBA Sync (Game Logs)
 
 on:
-  #schedule:
+  schedule:
     # 10:00 UTC is 4:00 AM CST / 5:00 AM CDT
-    #- cron: '0 10 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
     inputs:
       season:
@@ -73,33 +73,5 @@ jobs:
         run: |
           python update_gamelog.py \
             --seasons "${{ steps.params.outputs.bdl_season }}" \
-            --start_date "${{ steps.params.outputs.start_date }}" \
-            --end_date "${{ steps.params.outputs.end_date }}"
-
-      - name: 2. Sync Team Log (update_teamlog.py)
-        working-directory: ./TheOddsGame/ETLService
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          python update_teamlog.py \
-            --season "${{ steps.params.outputs.season }}" \
-            --start_date "${{ steps.params.outputs.start_date }}" \
-            --end_date "${{ steps.params.outputs.end_date }}"
-
-      - name: 3. Sync Player Log (update_playerlog.py)
-        working-directory: ./TheOddsGame/ETLService
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          python update_playerlog.py \
-            --season "${{ steps.params.outputs.season }}" \
             --start_date "${{ steps.params.outputs.start_date }}" \
             --end_date "${{ steps.params.outputs.end_date }}"
