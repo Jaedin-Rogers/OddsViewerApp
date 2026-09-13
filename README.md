@@ -4,7 +4,7 @@
 A Blazor Server web app for browsing live sports odds powered by the [The Odds API](https://the-odds-api.com/).
 
 
-## Features
+## The Odds Game Features
 
 
 - Browse odds across any sport supported by The Odds API
