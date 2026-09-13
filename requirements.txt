@@ -1,0 +1,9 @@
+requests
+psycopg2-binary
+pandas>=2.0.0
+sqlalchemy>=2.0.0
+psycopg[binary]>=3.1.0
+python-dotenv>=1.0.0
+balldontlie>=0.1.0
+curl_cffi>=0.7.0
+requests>=2.28.0
