@@ -1,14 +1,14 @@
 name: Sync Single Player Dimension
 
-on:
+'on':
   workflow_dispatch:
     inputs:
       first_name:
-        description: 'Player first name (required)'
+        description: Player first name (required)
         required: true
         default: ''
       last_name:
-        description: 'Player last name (required)'
+        description: Player last name (required)
         required: true
         default: ''
 

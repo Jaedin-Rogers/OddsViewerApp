@@ -77,6 +77,9 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# Local development secrets
+TheOddsGame/appsettings.Development.json
+
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

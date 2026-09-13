@@ -27,9 +27,10 @@ public sealed class OddsApiService
 
     public async Task<List<SportOption>> GetSportsAsync()
     {
+        EnsureApiKeyConfigured();
         var url = $"sports?apiKey={Uri.EscapeDataString(_options.ApiKey)}";
         using var response = await _http.GetAsync(url);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "sports");
 
         var json = await response.Content.ReadAsStringAsync();
         var root = JsonNode.Parse(json);
@@ -63,6 +64,38 @@ public sealed class OddsApiService
         return sports
             .OrderBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private void EnsureApiKeyConfigured()
+    {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new InvalidOperationException(
+                "The Odds API key is not configured. Set OddsApi:ApiKey with dotnet user-secrets or set the THE_ODDS_API_KEY environment variable.");
+        }
+    }
+
+    private async Task EnsureSuccessAsync(HttpResponseMessage response, string operation)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var body = await response.Content.ReadAsStringAsync();
+        _logger.LogError(
+            "The Odds API {Operation} request failed with {StatusCode}: {ResponseBody}",
+            operation,
+            (int)response.StatusCode,
+            body);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            throw new HttpRequestException(
+                "The Odds API rejected the configured API key (401). Verify the key at https://the-odds-api.com/ and configure it as OddsApi:ApiKey.",
+                null,
+                response.StatusCode);
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
 
