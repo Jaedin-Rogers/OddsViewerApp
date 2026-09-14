@@ -1,4 +1,4 @@
-name: Sync Teams Dime
+name: Sync Teams Dimension
 
 on:
   schedule:
