@@ -124,7 +124,7 @@ The repository includes GitHub Actions workflows for loading NBA reference and s
 | `Sync All Players Dimension` | Daily at 08:00 UTC, or manually | Runs `SyncDim.py --process SyncPlayers --single 0` to synchronize the player dimension. |
 | `Sync Teams Dime` | Fridays at 18:00 UTC, or manually | Synchronizes the team dimension. Manual runs can select a batch update or one team by name and city. |
 | `Sync Single Player Dimension` | Manually | Runs a single-player dimension sync using required `first_name` and `last_name` inputs. |
-| `Daily NBA Sync (Game, Team & Player Logs)` | Manually | Updates game, team, and player logs for a selected season and date range. The date range defaults to the previous three days through today. Its schedule is currently disabled. |
+| `Daily NBA Sync (Game Logs)` | Daily at 10:00 UTC, or manually | Synchronizes game logs (`update_gamelog.py`) for a selected season and date range (defaults to the previous 3 days through today). Team and player logs are managed manually for the time being. |
 
 The dimension workflows install dependencies from the repository-level `requirements.txt`. The NBA log workflow installs its dependencies directly in the workflow, including `pandas`, `sqlalchemy`, `psycopg`, `python-dotenv`, `balldontlie`, and `nba_api`.
 
