@@ -1,4 +1,4 @@
-# OddsViewerApp
+# The Odds Game
 
 
 A Blazor Server web app for browsing NBA odds, player props, and NBA stats/game logs. Live odds come from [The Odds API](https://the-odds-api.com/); historical NBA stats are synced from `nba_api`/BALLDONTLIE into a PostgreSQL database via Python ETL scripts.
