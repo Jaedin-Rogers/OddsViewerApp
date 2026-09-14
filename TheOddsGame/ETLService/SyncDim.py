@@ -186,6 +186,10 @@ def fetch_players_api(api: BalldontlieAPI, single: bool = False, first_name: str
     while True:
         try:
             resp = api.nba.players.list(cursor=cursor, per_page=100)
+
+            # Model dump is used to convert API response objects to dictionaries for easier processing
+            # This is the solution for unstructured API data response
+
             page_records = [p.model_dump() if hasattr(p, "model_dump") else p for p in resp.data]
             all_players.extend(page_records)
             page_count += 1
@@ -286,6 +290,7 @@ def sync_players(api: BalldontlieAPI, engine: Engine, single: bool = False, firs
                 RETURNING playerindex, "firstName", "lastName", playerteamid, jersey, guard, forward, center;
             """))
             log_sample_results("Single Sync - play.player_dim INSERT", res_insert)
+            ### NOTE: NEW PLAYERS WILL NEED THEIR GAME LOGS REFRESHED AFTER INSERTION
 
         else:
             # --- BATCH / ALL MODE: DB IS SOURCE OF TRUTH (UPDATE ONLY ON METADATA DIFF) ---
@@ -332,7 +337,7 @@ def sync_players(api: BalldontlieAPI, engine: Engine, single: bool = False, firs
                         first_name, last_name, "team.id", "jersey_number",
                         guard, forward, center, country, college, draft_year, to_year
                     FROM play._stg_players
-                    WHERE draft_year > 2020 
+                    WHERE draft_year > 2008
                       AND to_year IS NULL
                 ) stg
                 WHERE NOT EXISTS (
@@ -342,7 +347,7 @@ def sync_players(api: BalldontlieAPI, engine: Engine, single: bool = False, firs
                 )
                 RETURNING playerindex, "firstName", "lastName", playerteamid, jersey, guard, forward, center;
             """))
-            log_sample_results("Batch Sync - play.player_dim INSERT (Draft > 2020 & toyear IS NULL)", res_insert)
+            log_sample_results("Batch Sync - play.player_dim INSERT (Draft > 2008 & toyear IS NULL)", res_insert)
 
         conn.execute(text("DROP TABLE IF EXISTS play._stg_players;"))
 

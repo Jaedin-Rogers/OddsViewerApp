@@ -43,6 +43,7 @@ def format_nba_season(season_input: str = None, date_str: str = None) -> str:
     Accepts '2024', '2024-25', '2024-2025', or infers from a date (YYYY-MM-DD).
     """
     if season_input:
+        # Strips any leading/trailing whitespace from the season input and normalizes it to NBA format.
         s = str(season_input).strip()
         if len(s) == 4 and s.isdigit():
             start_yr = int(s)
@@ -78,14 +79,17 @@ def fetch_nba_api_team_logs(
     formatted_season = format_nba_season(season, start_date or end_date)
     logger.info(f"Fetching team logs via nba_api (Season: {formatted_season}, Type: {season_type}, Range: {start_date} to {end_date})...")
 
+    # kwargs argument for nba_api LeagueGameLog initialization
     kwargs = {
         "season": formatted_season,
         "season_type_all_star": season_type,
         "player_or_team_abbreviation": "T"  # 'T' for team logs
     }
     if start_date:
+        # date_from_nullable expects 'MM/DD/YYYY' format
         kwargs["date_from_nullable"] = datetime.strptime(start_date, "%Y-%m-%d").strftime("%m/%d/%Y")
     if end_date:
+        # date_to_nullable expects 'MM/DD/YYYY' format
         kwargs["date_to_nullable"] = datetime.strptime(end_date, "%Y-%m-%d").strftime("%m/%d/%Y")
 
     try:
