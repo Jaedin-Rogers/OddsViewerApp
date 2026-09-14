@@ -35,22 +35,25 @@ jobs:
       - name: Compute Execution Parameters
         id: params
         run: |
-          TODAY=$(date -u +'%Y-%m-%d')
-          START_3D=$(date -u -d "3 days ago" +'%Y-%m-%d' 2>/dev/null || date -u -v-3d +'%Y-%m-%d')
-          
           START="${{ github.event.inputs.start_date }}"
           END="${{ github.event.inputs.end_date }}"
           SEASON="${{ github.event.inputs.season }}"
-          
-          if [ -z "$START" ]; then START="$START_3D"; fi
-          if [ -z "$END" ]; then END="$TODAY"; fi
+
           if [ -z "$SEASON" ]; then SEASON="2026"; fi
+
+          # For automated daily scheduled runs, default to last 3 days window if dates are omitted
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -z "$START" ] && [ -z "$END" ]; then
+            TODAY=$(date -u +'%Y-%m-%d')
+            START_3D=$(date -u -d "3 days ago" +'%Y-%m-%d' 2>/dev/null || date -u -v-3d +'%Y-%m-%d')
+            START="$START_3D"
+            END="$TODAY"
+          fi
 
           echo "start_date=$START" >> $GITHUB_OUTPUT
           echo "end_date=$END" >> $GITHUB_OUTPUT
           echo "season=$SEASON" >> $GITHUB_OUTPUT
           
-          echo "Running with Season: $SEASON, Date Range: $START to $END"
+          echo "Running with Season: $SEASON, Date Range: '${START:-(full season)}' to '${END:-(full season)}'"
 
       - name: Sync Player Log (update_playerlog.py)
         working-directory: ./TheOddsGame/ETLService
