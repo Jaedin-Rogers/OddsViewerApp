@@ -7,7 +7,7 @@ A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-
 ## The Odds Game Features
 
 
-- Browse odds across any sport supported by The Odds API
+- Browse odds across any sport supported by Ball dont Lie
 - Filter by team, player, and odds type (market)
 - Markets: moneyline (H2H) and totals (Over/Under), configurable
 - Dynamic table columns — columns with all-null values (e.g. Over/Under on H2H markets) are hidden automatically
@@ -32,7 +32,7 @@ A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-
 
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- A free or paid API key from [The Odds API](https://the-odds-api.com/)
+- A free or paid API key from [Ball-dont-lie-api](https://www.balldontlie.io/?gad_source=1&gad_campaignid=23337274530&gbraid=0AAAAA-cCFf5gS3E-ogch4TGSHddSXmIRe&gclid=Cj0KCQjwk5nVBhDiARIsAHNGqacomgixrT-icoFxPH0jaQBL2JvLNqlEKj8VIdWndJT1Lhb_FIFKIR4aAn8vEALw_wcB)
 
 
 ## Getting Started
