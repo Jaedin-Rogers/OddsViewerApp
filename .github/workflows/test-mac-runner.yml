@@ -1,0 +1,21 @@
+name: Test Mac Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Check runner
+        run: |
+          echo "Running on my Mac!"
+          echo "Architecture:"
+          uname -m
+          echo "macOS:"
+          sw_vers
+          echo "Python:"
+          python3 --version
+          echo "Dotnet SDK:"
+          dotnet --version
