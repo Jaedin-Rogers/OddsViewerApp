@@ -24,7 +24,7 @@ A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-
 |---|---|
 | Framework | .NET 10, Blazor Server |
 | UI Components | MudBlazor |
-| Odds Data | The Odds API v4 |
+| Odds Data | Ball Dont Lie API v4 |
 | Styling | Bootstrap + MudBlazor theming |
 
 
