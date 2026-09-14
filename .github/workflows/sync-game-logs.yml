@@ -2,8 +2,9 @@ name: Daily NBA Sync (Game Logs)
 
 on:
   schedule:
-    # 10:00 UTC is 4:00 AM CST / 5:00 AM CDT
-    - cron: '0 10 * * *'
+    # Every night at 4:05 AM Central Time
+    - cron: '5 4 * * *'
+      timezone: 'America/Chicago'
   workflow_dispatch:
     inputs:
       season:
