@@ -32,6 +32,15 @@ def log_sample_results(label: str, result_proxy, limit: int = 5):
             logger.info(f"  [{i + 1}] {dict(row._mapping)}")
     else:
         logger.info("  (No rows affected/returned)")
+    return rows
+
+
+def log_skipped_names(label: str, rows, limit: int = 20):
+    total_count = len(rows)
+    if total_count == 0:
+        return
+    names = [f'{r._mapping["firstName"]} {r._mapping["lastName"]}' for r in rows[:limit]]
+    logger.info(f"{label} - First {len(names)} of {total_count} skipped player names: {names}")
 
 
 # ==========================================
@@ -248,7 +257,8 @@ def sync_player_logs(
             WHERE playerindex IS NULL
             RETURNING "firstName", "lastName", "teamAbbrev", "gameDate";
         """))
-        log_sample_results("Skipped Player Logs (Unmatched player_dim)", res_skipped_players)
+        skipped_player_rows = log_sample_results("Skipped Player Logs (Unmatched player_dim)", res_skipped_players)
+        log_skipped_names("Skipped Player Logs (Unmatched player_dim)", skipped_player_rows)
 
         res_skipped_games = conn.execute(text("""
             DELETE FROM play._stg_player_log

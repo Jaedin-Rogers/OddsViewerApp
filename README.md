@@ -1,19 +1,29 @@
-# OddsViewerApp
+# The Odds Game
 
 
-A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-lie-api](https://www.balldontlie.io/?gad_source=1&gad_campaignid=23337274530&gbraid=0AAAAA-cCFf5gS3E-ogch4TGSHddSXmIRe&gclid=Cj0KCQjwk5nVBhDiARIsAHNGqacomgixrT-icoFxPH0jaQBL2JvLNqlEKj8VIdWndJT1Lhb_FIFKIR4aAn8vEALw_wcB).
+A Blazor Server web app for browsing NBA odds, player props, and NBA stats/game logs. Live odds come from [The Odds API](https://the-odds-api.com/); historical NBA stats are synced from `nba_api`/BALLDONTLIE into a PostgreSQL database via Python ETL scripts.
 
 
-## The Odds Game Features
+## Pages
 
 
-- Browse odds across any sport supported by Ball dont Lie
-- Filter by team, player, and odds type (market)
-- Markets: moneyline (H2H) and totals (Over/Under), configurable
+| Page | Route | Description |
+|---|---|---|
+| Odds Dashboard | `/` or `/odds` | NBA moneyline/totals/player-props odds, filterable by team, player, bookmaker, and market. Sport is hardcoded to NBA (`basketball_nba`). |
+| Player Props | `/player-props` | NBA-only event/market picker for player prop odds (points, rebounds, assists, etc.), with bet selection and ML-ready JSON export. |
+| Stats & Game Logs | `/stat` | Browse team game logs and player box scores loaded from the Postgres NBA database, with team/season/player filtering and row pinning. |
+
+
+## Features
+
+
+- Browse NBA odds and player props (moneyline, totals, and player prop markets), configurable via `OddsApi` settings
+- Filter by team, player, bookmaker, and odds type (market)
 - Dynamic table columns — columns with all-null values (e.g. Over/Under on H2H markets) are hidden automatically
-- Match dates displayed in a configurable timezone with abbreviation (e.g. `2026-07-12 19:00 EDT`)
+- Match dates displayed in a configurable timezone with abbreviation (e.g. `2026-07-12 19:00 CDT`)
 - American odds format (configurable)
-- Pandas-ready JSON export preview (for future ML predictions)
+- Pandas-ready / ML-ready JSON export preview for selected bets
+- Team & player game log browser backed by a PostgreSQL database, with pinning and client-side filtering that updates in real time
 - MudBlazor UI with light/dark theme support
 
 
@@ -22,9 +32,11 @@ A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-
 
 | Layer | Technology |
 |---|---|
-| Framework | .NET 10, Blazor Server |
+| Framework | .NET 10, Blazor Server (interactive server render mode) |
 | UI Components | MudBlazor |
-| Odds Data | Ball Dont Lie API v4 |
+| Live Odds Data | The Odds API v4 |
+| Stats Database | PostgreSQL (queried via Dapper/Npgsql) |
+| ETL / Data Pipelines | Python (`pandas`, `sqlalchemy`, `psycopg`, `nba_api`, `balldontlie`) |
 | Styling | Bootstrap + MudBlazor theming |
 
 
@@ -32,7 +44,9 @@ A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-
 
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- A free or paid API key from [Ball-dont-lie-api](https://www.balldontlie.io/?gad_source=1&gad_campaignid=23337274530&gbraid=0AAAAA-cCFf5gS3E-ogch4TGSHddSXmIRe&gclid=Cj0KCQjwk5nVBhDiARIsAHNGqacomgixrT-icoFxPH0jaQBL2JvLNqlEKj8VIdWndJT1Lhb_FIFKIR4aAn8vEALw_wcB)
+- A free or paid API key from [The Odds API](https://the-odds-api.com/)
+- A PostgreSQL database (e.g. Azure Database for PostgreSQL) populated by the ETL scripts, for the Stats & Game Logs page
+- Python 3.11+ if you plan to run the ETL scripts in `TheOddsGame/ETLService/` locally
 
 
 ## Getting Started
@@ -93,6 +107,8 @@ Navigate to `https://localhost:5001` (or the port shown in the terminal).
 ## Configuration
 
 
+### The Odds API
+
 All options live under the `OddsApi` section in `appsettings.json`:
 
 
@@ -101,9 +117,26 @@ All options live under the `OddsApi` section in `appsettings.json`:
 | `ApiKey` | _(empty)_ | Your The Odds API key |
 | `BaseUrl` | `https://api.the-odds-api.com/v4` | API base URL |
 | `Regions` | `us` | Bookmaker regions (`us`, `uk`, `eu`, `au`) |
-| `Markets` | `h2h,totals` | Comma-separated market keys to fetch |
+| `Markets` | `h2h,totals,player_props` | Comma-separated market keys to fetch |
 | `OddsFormat` | `american` | `american` or `decimal` |
 | `DefaultBookmakers` | `DraftKings, FanDuel, BetMGM` | Default bookmaker display filter |
+
+> The Odds Dashboard and Player Props pages are hardcoded to the NBA sport key (`basketball_nba`); no sport picker is shown in the UI.
+
+### NBA Stats Database
+
+The Stats & Game Logs page reads from a PostgreSQL database via `NBADBService`. Connection settings are configured through `projectsettings.json` (see `projectsettings.example.json` for the template — copy it to `projectsettings.json` and fill in real values, which is git-ignored) or environment variables:
+
+
+| Key | Description |
+|---|---|
+| `DB_HOST` | PostgreSQL server host |
+| `DB_PORT` | PostgreSQL server port (default `5432`) |
+| `DB_NAME` | Database name |
+| `DB_USER` | Database username |
+| `DB_PASSWORD` | Database password |
+
+These same values are also used by the Python ETL scripts and can alternatively be provided via a `.env` file or repository secrets for CI.
 
 
 ## Data Pipelines

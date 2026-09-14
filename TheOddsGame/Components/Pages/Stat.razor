@@ -1,0 +1,632 @@
+@page "/stat"
+@rendermode InteractiveServer
+
+@using System.Globalization
+@using OddsViewerApp.Models
+@using OddsViewerApp.Services
+
+@inject NBADBService NbaDb
+
+<PageTitle>Player & Game Stats</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Class="mb-1">
+        Player & Game Stats
+    </MudText>
+
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Browse NBA team game logs and individual player box scores from your database. Pin rows to keep them visible while changing filters.
+    </MudText>
+
+    <!-- FILTERS -->
+    <MudPaper Class="pa-4 mb-4" Outlined="true">
+        <MudGrid Spacing="2">
+
+            <!-- RESULT TYPE -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string"
+                           Value="SelectedResultType"
+                           ValueChanged="OnResultTypeChanged"
+                           Label="Results"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="@ResultTypeGame">Team Results</MudSelectItem>
+                    <MudSelectItem Value="@ResultTypePlayer">Player Logs</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <!-- TEAM -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudAutocomplete T="string"
+                                 @ref="_teamAutocomplete"
+                                 @bind-Value="SelectedTeam"
+                                 Label="Team"
+                                 Placeholder="Search or select team..."
+                                 SearchFunc="SearchTeams"
+                                 ResetValueOnEmptyText="true"
+                                 CoerceText="true"
+                                 CoerceValue="true"
+                                 Clearable="true"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
+            </MudItem>
+
+            <!-- SEASON -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string"
+                           @bind-Value="SelectedSeason"
+                           Label="Season"
+                           Placeholder="All seasons"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="@string.Empty">All seasons</MudSelectItem>
+                    @foreach (var season in AvailableSeasons)
+                    {
+                        <MudSelectItem Value="@season">@season</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <!-- PLAYER (WHEN IN PLAYER LOG MODE) -->
+            @if (SelectedResultType == ResultTypePlayer)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudAutocomplete T="string"
+                                     @ref="_playerAutocomplete"
+                                     @bind-Value="SelectedPlayer"
+                                     Label="Player"
+                                     Placeholder="Search or select player..."
+                                     SearchFunc="SearchPlayers"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="true"
+                                     Clearable="true"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense" />
+                </MudItem>
+            }
+
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-4" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="LoadStatsAsync"
+                       Disabled="@IsLoading">
+                @(IsLoading ? "Loading..." : "Load Stats")
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       OnClick="ClearFilters"
+                       Disabled="@IsLoading">
+                Clear Filters
+            </MudButton>
+
+            @if (PinnedCount > 0)
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           OnClick="ClearPinnedRows">
+                    Clear Pinned (@PinnedCount)
+                </MudButton>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @if (IsLoading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            @ErrorMessage
+        </MudAlert>
+    }
+
+    <!-- PINNED ROWS -->
+    @if (PinnedCount > 0)
+    {
+        <MudPaper Class="pa-4 mb-4" Outlined="true">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="mb-2">
+                <MudText Typo="Typo.h6">
+                    Pinned Rows (@PinnedCount)
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Error"
+                           Size="Size.Small"
+                           OnClick="ClearPinnedRows">
+                    Clear All
+                </MudButton>
+            </MudStack>
+
+            @if (SelectedResultType == ResultTypeGame && PinnedGameRows.Count > 0)
+            {
+                <MudDataGrid T="GameLogRow"
+                             Items="@PinnedGameRows"
+                             Height="280px"
+                             FixedHeader="true"
+                             Dense="true"
+                             Striped="true"
+                             Hover="true">
+                    <Columns>
+                        <TemplateColumn T="GameLogRow" Title="" StickyLeft="true">
+                            <CellTemplate>
+                                <MudIconButton Icon="@Icons.Material.Filled.PushPin"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="() => ToggleGamePin(context.Item)" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.Team" Title="Team" />
+                        <PropertyColumn Property="x => x.Season" Title="Season" />
+                        <PropertyColumn Property="x => x.GameDate" Title="Date" Format="yyyy-MM-dd" />
+                        <PropertyColumn Property="x => x.Opponent" Title="Opponent" />
+                        <PropertyColumn Property="x => x.Result" Title="Result" />
+                        <PropertyColumn Property="x => x.Points" Title="PTS" />
+                        <PropertyColumn Property="x => x.Rebounds" Title="REB" />
+                        <PropertyColumn Property="x => x.Assists" Title="AST" />
+                        <PropertyColumn Property="x => x.Steals" Title="STL" />
+                        <PropertyColumn Property="x => x.Blocks" Title="BLK" />
+                        <PropertyColumn Property="x => x.Turnovers" Title="TOV" />
+                        <PropertyColumn Property="x => x.PlusMinus" Title="+/-" />
+                    </Columns>
+                </MudDataGrid>
+            }
+            else if (SelectedResultType == ResultTypePlayer && PinnedPlayerRows.Count > 0)
+            {
+                <MudDataGrid T="PlayerLogRow"
+                             Items="@PinnedPlayerRows"
+                             Height="280px"
+                             FixedHeader="true"
+                             Dense="true"
+                             Striped="true"
+                             Hover="true">
+                    <Columns>
+                        <TemplateColumn T="PlayerLogRow" Title="" StickyLeft="true">
+                            <CellTemplate>
+                                <MudIconButton Icon="@Icons.Material.Filled.PushPin"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="() => TogglePlayerPin(context.Item)" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.Player" Title="Player" />
+                        <PropertyColumn Property="x => x.Team" Title="Team" />
+                        <PropertyColumn Property="x => x.Season" Title="Season" />
+                        <PropertyColumn Property="x => x.GameDate" Title="Date" Format="yyyy-MM-dd" />
+                        <PropertyColumn Property="x => x.Opponent" Title="Opponent" />
+                        <PropertyColumn Property="x => x.Result" Title="Result" />
+                        <PropertyColumn Property="x => x.Minutes" Title="MIN" />
+                        <PropertyColumn Property="x => x.Points" Title="PTS" />
+                        <PropertyColumn Property="x => x.Rebounds" Title="REB" />
+                        <PropertyColumn Property="x => x.Assists" Title="AST" />
+                        <PropertyColumn Property="x => x.Steals" Title="STL" />
+                        <PropertyColumn Property="x => x.Blocks" Title="BLK" />
+                        <PropertyColumn Property="x => x.Turnovers" Title="TOV" />
+                        <PropertyColumn Property="x => x.PlusMinus" Title="+/-" />
+                    </Columns>
+                </MudDataGrid>
+            }
+        </MudPaper>
+    }
+
+    <!-- DATASET SUMMARY & TABLES -->
+    @if (HasData)
+    {
+        <MudStack Row="true"
+                  Spacing="3"
+                  Class="mb-3"
+                  AlignItems="AlignItems.Center"
+                  Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2">
+                <strong>Total rows:</strong> @TotalRows
+            </MudText>
+            <MudText Typo="Typo.body2">
+                <strong>Filtered rows:</strong> @VisibleRowCount
+            </MudText>
+            <MudText Typo="Typo.body2">
+                <strong>Pinned:</strong> @PinnedCount
+            </MudText>
+        </MudStack>
+
+        <!-- TEAM GAME LOG TABLE -->
+        @if (SelectedResultType == ResultTypeGame)
+        {
+            <MudDataGrid T="GameLogRow"
+                         Items="@VisibleGameRows"
+                         Height="650px"
+                         FixedHeader="true"
+                         Dense="true"
+                         Striped="true"
+                         Hover="true"
+                         SortMode="SortMode.Multiple">
+                <Columns>
+                    <TemplateColumn T="GameLogRow" Title="Pin" StickyLeft="true">
+                        <CellTemplate>
+                            <MudIconButton Icon="@(IsGamePinned(context.Item)
+                                                    ? Icons.Material.Filled.PushPin
+                                                    : Icons.Material.Outlined.PushPin)"
+                                           Color="@(IsGamePinned(context.Item)
+                                                    ? Color.Primary
+                                                    : Color.Default)"
+                                           Size="Size.Small"
+                                           OnClick="() => ToggleGamePin(context.Item)" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Team" Title="Team" />
+                    <PropertyColumn Property="x => x.Season" Title="Season" />
+                    <PropertyColumn Property="x => x.GameDate" Title="Date" Format="yyyy-MM-dd" />
+                    <PropertyColumn Property="x => x.Opponent" Title="Opponent" />
+                    <PropertyColumn Property="x => x.Result" Title="Result" />
+                    <PropertyColumn Property="x => x.Points" Title="PTS" />
+                    <PropertyColumn Property="x => x.Rebounds" Title="REB" />
+                    <PropertyColumn Property="x => x.Assists" Title="AST" />
+                    <PropertyColumn Property="x => x.Steals" Title="STL" />
+                    <PropertyColumn Property="x => x.Blocks" Title="BLK" />
+                    <PropertyColumn Property="x => x.Turnovers" Title="TOV" />
+                    <PropertyColumn Property="x => x.PlusMinus" Title="+/-" />
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="GameLogRow" PageSizeOptions="new int[] { 25, 50, 100, 200 }" />
+                </PagerContent>
+            </MudDataGrid>
+        }
+
+        <!-- PLAYER LOG TABLE -->
+        @if (SelectedResultType == ResultTypePlayer)
+        {
+            <MudDataGrid T="PlayerLogRow"
+                         Items="@VisiblePlayerRows"
+                         Height="650px"
+                         FixedHeader="true"
+                         Dense="true"
+                         Striped="true"
+                         Hover="true"
+                         SortMode="SortMode.Multiple">
+                <Columns>
+                    <TemplateColumn T="PlayerLogRow" Title="Pin" StickyLeft="true">
+                        <CellTemplate>
+                            <MudIconButton Icon="@(IsPlayerPinned(context.Item)
+                                                    ? Icons.Material.Filled.PushPin
+                                                    : Icons.Material.Outlined.PushPin)"
+                                           Color="@(IsPlayerPinned(context.Item)
+                                                    ? Color.Primary
+                                                    : Color.Default)"
+                                           Size="Size.Small"
+                                           OnClick="() => TogglePlayerPin(context.Item)" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Player" Title="Player" />
+                    <PropertyColumn Property="x => x.Team" Title="Team" />
+                    <PropertyColumn Property="x => x.Season" Title="Season" />
+                    <PropertyColumn Property="x => x.GameDate" Title="Date" Format="yyyy-MM-dd" />
+                    <PropertyColumn Property="x => x.Opponent" Title="Opponent" />
+                    <PropertyColumn Property="x => x.Result" Title="Result" />
+                    <PropertyColumn Property="x => x.Minutes" Title="MIN" />
+                    <PropertyColumn Property="x => x.Points" Title="PTS" />
+                    <PropertyColumn Property="x => x.Rebounds" Title="REB" />
+                    <PropertyColumn Property="x => x.Assists" Title="AST" />
+                    <PropertyColumn Property="x => x.Steals" Title="STL" />
+                    <PropertyColumn Property="x => x.Blocks" Title="BLK" />
+                    <PropertyColumn Property="x => x.Turnovers" Title="TOV" />
+                    <PropertyColumn Property="x => x.PlusMinus" Title="+/-" />
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="PlayerLogRow" PageSizeOptions="new int[] { 25, 50, 100, 200 }" />
+                </PagerContent>
+            </MudDataGrid>
+        }
+    }
+    else if (!IsLoading)
+    {
+        <MudAlert Severity="Severity.Normal">
+            Click <strong>Load Stats</strong> to fetch game and player logs from your database.
+        </MudAlert>
+    }
+
+</MudContainer>
+
+@code {
+    private const string ResultTypeGame = "game";
+    private const string ResultTypePlayer = "player";
+
+    private string SelectedResultType = ResultTypePlayer;
+    private string SelectedTeam = string.Empty;
+    private string SelectedSeason = string.Empty;
+    private string SelectedPlayer = string.Empty;
+
+    private bool IsLoading;
+    private string ErrorMessage = string.Empty;
+
+    private List<GameLogRow> AllGameRows = new();
+    private List<PlayerLogRow> AllPlayerRows = new();
+
+    private List<string> DbTeams = new();
+    private List<string> DbPlayers = new();
+
+    private MudAutocomplete<string>? _teamAutocomplete;
+    private MudAutocomplete<string>? _playerAutocomplete;
+
+    private readonly Dictionary<string, GameLogRow> PinnedGames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PlayerLogRow> PinnedPlayers = new(StringComparer.Ordinal);
+
+    private bool HasData =>
+        SelectedResultType == ResultTypeGame ? AllGameRows.Count > 0 : AllPlayerRows.Count > 0;
+
+    private int TotalRows =>
+        SelectedResultType == ResultTypeGame ? AllGameRows.Count : AllPlayerRows.Count;
+
+    private int VisibleRowCount =>
+        SelectedResultType == ResultTypeGame ? VisibleGameRows.Count : VisiblePlayerRows.Count;
+
+    private int PinnedCount =>
+        SelectedResultType == ResultTypeGame ? PinnedGames.Count : PinnedPlayers.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            DbTeams = await NbaDb.GetTeamsAsync();
+            DbPlayers = await NbaDb.GetPlayersAsync();
+        }
+        catch
+        {
+            // Non-fatal if initial fetch fails before user configures DB
+        }
+    }
+
+    private void OnResultTypeChanged(string newType)
+    {
+        SelectedResultType = newType;
+        SelectedPlayer = string.Empty;
+    }
+
+    /* FILTER OPTIONS */
+    private List<string> AvailableSeasons
+    {
+        get
+        {
+            var loadedSeasons = (SelectedResultType == ResultTypeGame
+                ? AllGameRows.Select(x => x.Season)
+                : AllPlayerRows.Select(x => x.Season))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (loadedSeasons.Count > 0)
+            {
+                return loadedSeasons.OrderByDescending(x => x).ToList();
+            }
+
+            // Default NBA seasons list
+            return new List<string>
+            {
+                "2025-26", "2024-25", "2023-24", "2022-23", "2021-22", "2020-21"
+            };
+        }
+    }
+
+    private List<string> AvailableTeams
+    {
+        get
+        {
+            if (DbTeams.Count > 0)
+                return DbTeams;
+
+            return (SelectedResultType == ResultTypeGame
+                ? AllGameRows.Select(x => x.Team)
+                : AllPlayerRows.Select(x => x.Team))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x)
+                .ToList();
+        }
+    }
+
+    private List<string> FilteredPlayers =>
+        AllPlayerRows.Count > 0
+            ? AllPlayerRows
+                .Where(x => string.IsNullOrWhiteSpace(SelectedTeam) || x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+                .Where(x => string.IsNullOrWhiteSpace(SelectedSeason) || x.Season.Equals(SelectedSeason, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Player)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x)
+                .ToList()
+            : DbPlayers;
+
+    private Task<IEnumerable<string>> SearchTeams(string value, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(AvailableTeams);
+        }
+
+        return Task.FromResult(
+            AvailableTeams.Where(x => x.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private Task<IEnumerable<string>> SearchPlayers(string value, CancellationToken token)
+    {
+        var players = FilteredPlayers;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(players.Take(100));
+        }
+
+        return Task.FromResult(
+            players.Where(x => x.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(100));
+    }
+
+    /* FILTERED ROWS */
+    private List<GameLogRow> VisibleGameRows =>
+        AllGameRows
+            .Where(x => string.IsNullOrWhiteSpace(SelectedTeam) || x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(SelectedSeason) || x.Season.Equals(SelectedSeason, StringComparison.OrdinalIgnoreCase))
+            .Where(x => !IsGamePinned(x))
+            .OrderByDescending(x => x.GameDate)
+            .ToList();
+
+    private List<PlayerLogRow> VisiblePlayerRows =>
+        AllPlayerRows
+            .Where(x => string.IsNullOrWhiteSpace(SelectedTeam) || x.Team.Equals(SelectedTeam, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(SelectedSeason) || x.Season.Equals(SelectedSeason, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(SelectedPlayer) || x.Player.Equals(SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            .Where(x => !IsPlayerPinned(x))
+            .OrderByDescending(x => x.GameDate)
+            .ToList();
+
+    /* PINNED ROWS */
+    private List<GameLogRow> PinnedGameRows =>
+        PinnedGames.Values.OrderByDescending(x => x.GameDate).ToList();
+
+    private List<PlayerLogRow> PinnedPlayerRows =>
+        PinnedPlayers.Values.OrderByDescending(x => x.GameDate).ToList();
+
+    private void ToggleGamePin(GameLogRow row)
+    {
+        var key = GetGameKey(row);
+        if (PinnedGames.ContainsKey(key))
+        {
+            PinnedGames.Remove(key);
+        }
+        else
+        {
+            PinnedGames[key] = row;
+        }
+    }
+
+    private void TogglePlayerPin(PlayerLogRow row)
+    {
+        var key = GetPlayerKey(row);
+        if (PinnedPlayers.ContainsKey(key))
+        {
+            PinnedPlayers.Remove(key);
+        }
+        else
+        {
+            PinnedPlayers[key] = row;
+        }
+    }
+
+    private bool IsGamePinned(GameLogRow row) =>
+        PinnedGames.ContainsKey(GetGameKey(row));
+
+    private bool IsPlayerPinned(PlayerLogRow row) =>
+        PinnedPlayers.ContainsKey(GetPlayerKey(row));
+
+    private void ClearPinnedRows()
+    {
+        if (SelectedResultType == ResultTypeGame)
+        {
+            PinnedGames.Clear();
+        }
+        else
+        {
+            PinnedPlayers.Clear();
+        }
+    }
+
+    private static string GetGameKey(GameLogRow row)
+    {
+        return row.GameId > 0
+            ? $"{row.GameId}|{row.Team}"
+            : string.Join("|", row.Team, row.Season, row.GameDate.ToString("O"), row.Opponent);
+    }
+
+    private static string GetPlayerKey(PlayerLogRow row)
+    {
+        return row.GameId > 0 && !string.IsNullOrWhiteSpace(row.Player)
+            ? $"{row.GameId}|{row.Player}"
+            : string.Join("|", row.Player, row.Team, row.Season, row.GameDate.ToString("O"), row.Opponent);
+    }
+
+    /* DATA LOADING */
+    private async Task LoadStatsAsync()
+    {
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            IsLoading = true;
+
+            if (SelectedResultType == ResultTypeGame)
+            {
+                AllGameRows = await NbaDb.GetGameLogsAsync(
+                    season: string.IsNullOrWhiteSpace(SelectedSeason) ? null : SelectedSeason,
+                    team: string.IsNullOrWhiteSpace(SelectedTeam) ? null : SelectedTeam
+                );
+            }
+            else
+            {
+                // Player filter is applied client-side (see VisiblePlayerRows) so selecting a
+                // player never shrinks AllPlayerRows and collapses the Season/Team options.
+                AllPlayerRows = await NbaDb.GetPlayerLogsAsync(
+                    season: string.IsNullOrWhiteSpace(SelectedSeason) ? null : SelectedSeason,
+                    team: string.IsNullOrWhiteSpace(SelectedTeam) ? null : SelectedTeam
+                );
+            }
+
+            if (DbTeams.Count == 0)
+            {
+                DbTeams = await NbaDb.GetTeamsAsync();
+            }
+
+            ValidateFilters();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load stats: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ValidateFilters()
+    {
+        if (!string.IsNullOrWhiteSpace(SelectedSeason) &&
+            !AvailableSeasons.Contains(SelectedSeason, StringComparer.OrdinalIgnoreCase))
+        {
+            SelectedSeason = string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedTeam) &&
+            !AvailableTeams.Contains(SelectedTeam, StringComparer.OrdinalIgnoreCase))
+        {
+            SelectedTeam = string.Empty;
+        }
+
+        if (SelectedResultType == ResultTypePlayer &&
+            !string.IsNullOrWhiteSpace(SelectedPlayer) &&
+            !FilteredPlayers.Contains(SelectedPlayer, StringComparer.OrdinalIgnoreCase))
+        {
+            SelectedPlayer = string.Empty;
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        SelectedSeason = string.Empty;
+
+        // MudAutocomplete keeps its own display text separate from Value, so clearing
+        // the bound fields alone leaves the stale text on screen. Clear() resets both.
+        if (_teamAutocomplete is not null)
+            await _teamAutocomplete.ClearAsync();
+        else
+            SelectedTeam = string.Empty;
+
+        if (_playerAutocomplete is not null)
+            await _playerAutocomplete.ClearAsync();
+        else
+            SelectedPlayer = string.Empty;
+    }
+}
