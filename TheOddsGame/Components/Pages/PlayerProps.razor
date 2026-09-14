@@ -11,21 +11,11 @@
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
     <MudText Typo="Typo.h5" Class="mb-1">Player Props</MudText>
     <MudText Typo="Typo.body2" Class="mb-4">
-        Select a sport, then an event, then a supported props market key.
+        NBA player props. Select an event, then a supported props market key.
     </MudText>
 
     <MudPaper Class="pa-4 mb-4" Outlined="true">
         <MudGrid Spacing="2">
-            <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Value="SelectedSport" ValueChanged="OnSportChanged" Label="Sport" Placeholder="Select sport" Variant="Variant.Outlined" Margin="Margin.Dense">
-                    <MudSelectItem Value="@string.Empty">-- Select sport --</MudSelectItem>
-                    @foreach (var sport in Sports)
-                    {
-                        <MudSelectItem Value="@sport.Key">@sport.DisplayName</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
-
             <MudItem xs="12" sm="6" md="5">
                 <MudSelect T="string" Value="SelectedEventId" ValueChanged="OnEventChanged" Label="Event" Placeholder="Select event" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!Events.Any())">
                     <MudSelectItem Value="@string.Empty">-- Select event --</MudSelectItem>
@@ -207,7 +197,7 @@
     private const string DisplayTimeZoneId = "Central Standard Time";
     private static readonly TimeZoneInfo DisplayTimeZone = ResolveTimeZone(DisplayTimeZoneId);
 
-    private List<SportOption> Sports = new();
+    private const string SelectedSport = "basketball_nba";
     private List<EventOption> Events = new();
     private List<string> PropMarkets = new();
     private List<OddsRow> AllRows = new();
@@ -215,7 +205,6 @@
     private readonly Dictionary<string, List<string>> EventMarketsCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<OddsRow>> EventPropsCache = new(StringComparer.OrdinalIgnoreCase);
 
-    private string? SelectedSport;
     private string? SelectedEventId;
     private string? SelectedMarketKey;
     private string? SelectedBookmaker;
@@ -227,25 +216,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Sports = await OddsApi.GetSportsAsync();
-    }
-
-    private async Task OnSportChanged(string? sport)
-    {
-        SelectedSport = sport;
-        SelectedEventId = null;
-        SelectedMarketKey = null;
-        SelectedBookmaker = null;
-        SelectedPlayer = null;
-        Events = new List<EventOption>();
-        PropMarkets = new List<string>();
-        AllRows = new List<OddsRow>();
-        ErrorMessage = "";
-        InfoMessage = "";
-
-        if (string.IsNullOrWhiteSpace(SelectedSport))
-            return;
-
         try
         {
             IsLoading = true;

@@ -1,9 +1,13 @@
 using TheOddsGame.Components;
 using OddsViewerApp.Services;
 using MudBlazor.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddEnvironmentVariables();
+builder.Configuration
+    .AddJsonFile("projectsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile("../projectsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
 
 var secretApiKey = builder.Configuration["THE_ODDS_API_KEY"]
     ?? builder.Configuration["OddsApi__ApiKey"];
@@ -13,8 +17,6 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
-
-
 
 builder.Services.Configure<OddsApiOptions>(options =>
 {
@@ -34,6 +36,31 @@ builder.Services.AddHttpClient<OddsApiService>((serviceProvider, client) =>
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
 });
 
+builder.Services.Configure<NbaDbOptions>(options =>
+{
+    builder.Configuration.GetSection("NbaDb").Bind(options);
+
+    var connectionString = builder.Configuration.GetConnectionString("NbaDb")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.ConnectionString = connectionString;
+    }
+
+    var dbHost = builder.Configuration["DB_HOST"];
+    var dbPort = builder.Configuration["DB_PORT"];
+    var dbName = builder.Configuration["DB_NAME"];
+    var dbUser = builder.Configuration["DB_USER"];
+    var dbPassword = builder.Configuration["DB_PASSWORD"];
+
+    if (!string.IsNullOrWhiteSpace(dbHost)) options.Host = dbHost;
+    if (int.TryParse(dbPort, out var p)) options.Port = p;
+    if (!string.IsNullOrWhiteSpace(dbName)) options.Database = dbName;
+    if (!string.IsNullOrWhiteSpace(dbUser)) options.Username = dbUser;
+    if (!string.IsNullOrWhiteSpace(dbPassword)) options.Password = dbPassword;
+});
+
+builder.Services.AddScoped<NBADBService>();
 
 var app = builder.Build();
 
