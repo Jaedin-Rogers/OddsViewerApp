@@ -1,0 +1,67 @@
+name: Sync Team Logs
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season year (e.g. 2026, 2025-26, 2024-25). Defaults to 2026 if empty.'
+        required: false
+        default: '2026'
+      start_date:
+        description: 'Start date (YYYY-MM-DD, optional override)'
+        required: false
+      end_date:
+        description: 'End date (YYYY-MM-DD, optional override)'
+        required: false
+
+jobs:
+  sync_team_logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas sqlalchemy "psycopg[binary]" python-dotenv nba_api
+
+      - name: Compute Execution Parameters
+        id: params
+        run: |
+          TODAY=$(date -u +'%Y-%m-%d')
+          START_3D=$(date -u -d "3 days ago" +'%Y-%m-%d' 2>/dev/null || date -u -v-3d +'%Y-%m-%d')
+          
+          START="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
+          SEASON="${{ github.event.inputs.season }}"
+          
+          if [ -z "$START" ]; then START="$START_3D"; fi
+          if [ -z "$END" ]; then END="$TODAY"; fi
+          if [ -z "$SEASON" ]; then SEASON="2026"; fi
+
+          echo "start_date=$START" >> $GITHUB_OUTPUT
+          echo "end_date=$END" >> $GITHUB_OUTPUT
+          echo "season=$SEASON" >> $GITHUB_OUTPUT
+          
+          echo "Running with Season: $SEASON, Date Range: $START to $END"
+
+      - name: Sync Team Log (update_teamlog.py)
+        working-directory: ./TheOddsGame/ETLService
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          python update_teamlog.py \
+            --season "${{ steps.params.outputs.season }}" \
+            --start_date "${{ steps.params.outputs.start_date }}" \
+            --end_date "${{ steps.params.outputs.end_date }}"
