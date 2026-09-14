@@ -1,7 +1,7 @@
 # OddsViewerApp
 
 
-A Blazor Server web app for browsing live sports odds powered by the [The Odds API](https://the-odds-api.com/).
+A Blazor Server web app for browsing live sports odds powered by the [Ball-dont-lie-api](https://www.balldontlie.io/?gad_source=1&gad_campaignid=23337274530&gbraid=0AAAAA-cCFf5gS3E-ogch4TGSHddSXmIRe&gclid=Cj0KCQjwk5nVBhDiARIsAHNGqacomgixrT-icoFxPH0jaQBL2JvLNqlEKj8VIdWndJT1Lhb_FIFKIR4aAn8vEALw_wcB).
 
 
 ## The Odds Game Features
