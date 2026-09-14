@@ -92,7 +92,7 @@ def fetch_nba_api_player_logs(
         kwargs["date_to_nullable"] = datetime.strptime(end_date, "%Y-%m-%d").strftime("%m/%d/%Y")
 
     try:
-        log_endpoint = leaguegamelog.LeagueGameLog(**kwargs)
+        log_endpoint = leaguegamelog.LeagueGameLog(timeout=120, **kwargs)
         df = log_endpoint.get_data_frames()[0]
         logger.info(f"Successfully retrieved {len(df)} player game log records from NBA.com.")
         return df

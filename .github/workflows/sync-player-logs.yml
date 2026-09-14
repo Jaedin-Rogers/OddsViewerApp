@@ -64,7 +64,12 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          python update_playerlog.py \
-            --season "${{ steps.params.outputs.season }}" \
-            --start_date "${{ steps.params.outputs.start_date }}" \
-            --end_date "${{ steps.params.outputs.end_date }}"
+          ARGS="--season \"${{ steps.params.outputs.season }}\""
+          if [ -n "${{ steps.params.outputs.start_date }}" ]; then
+            ARGS="$ARGS --start_date \"${{ steps.params.outputs.start_date }}\""
+          fi
+          if [ -n "${{ steps.params.outputs.end_date }}" ]; then
+            ARGS="$ARGS --end_date \"${{ steps.params.outputs.end_date }}\""
+          fi
+
+          eval python update_playerlog.py $ARGS
