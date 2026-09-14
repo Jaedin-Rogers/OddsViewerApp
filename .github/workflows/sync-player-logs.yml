@@ -1,15 +1,22 @@
-name: Sync Player Logs
+name: Sync Player Logs Daily
 
 on:
+  schedule:
+    # Every night at 5:00 AM Central Time
+    - cron: '5 5 * * *'
+      timezone: 'America/Chicago'
+
   workflow_dispatch:
     inputs:
       season:
         description: 'Season year (e.g. 2026, 2025-26, 2024-25). Defaults to 2026 if empty.'
         required: false
         default: '2026'
+
       start_date:
         description: 'Start date (YYYY-MM-DD, optional override)'
         required: false
+
       end_date:
         description: 'End date (YYYY-MM-DD, optional override)'
         required: false
@@ -26,8 +33,10 @@ jobs:
         run: |
           echo "Python:"
           python3 --version
+
           echo "Architecture:"
           uname -m
+
           echo "Python location:"
           which python3
 
@@ -43,17 +52,28 @@ jobs:
           END="${{ github.event.inputs.end_date }}"
           SEASON="${{ github.event.inputs.season }}"
 
+          # Default season to 2026 if empty
           if [ -z "$SEASON" ]; then
             SEASON="2026"
+          fi
+
+          # For automated nightly runs, pull the last 3 days
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -z "$START" ] && [ -z "$END" ]; then
+            TODAY=$(date -u +'%Y-%m-%d')
+            START_3D=$(date -u -v-3d +'%Y-%m-%d')
+
+            START="$START_3D"
+            END="$TODAY"
           fi
 
           echo "start_date=$START" >> "$GITHUB_OUTPUT"
           echo "end_date=$END" >> "$GITHUB_OUTPUT"
           echo "season=$SEASON" >> "$GITHUB_OUTPUT"
 
-          echo "Running with Season: $SEASON, Date Range: '${START:-(full season)}' to '${END:-(full season)}'"
+          echo "Running with Season: $SEASON"
+          echo "Date Range: '${START:-(full season)}' to '${END:-(full season)}'"
 
-      - name: Sync Player Log (update_playerlog.py)
+      - name: Sync Player Log
         working-directory: ./TheOddsGame/ETLService
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -61,21 +81,30 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
         run: |
           if [ -n "${{ steps.params.outputs.start_date }}" ] && [ -n "${{ steps.params.outputs.end_date }}" ]; then
+
             python3 update_playerlog.py \
               --season "${{ steps.params.outputs.season }}" \
               --start_date "${{ steps.params.outputs.start_date }}" \
               --end_date "${{ steps.params.outputs.end_date }}"
+
           elif [ -n "${{ steps.params.outputs.start_date }}" ]; then
+
             python3 update_playerlog.py \
               --season "${{ steps.params.outputs.season }}" \
               --start_date "${{ steps.params.outputs.start_date }}"
+
           elif [ -n "${{ steps.params.outputs.end_date }}" ]; then
+
             python3 update_playerlog.py \
               --season "${{ steps.params.outputs.season }}" \
               --end_date "${{ steps.params.outputs.end_date }}"
+
           else
+
             python3 update_playerlog.py \
               --season "${{ steps.params.outputs.season }}"
+
           fi
