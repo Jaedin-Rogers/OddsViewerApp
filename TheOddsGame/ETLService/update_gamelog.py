@@ -45,9 +45,7 @@ def log_sample_results(label: str, result_proxy, limit: int = 5):
         logger.info("  (No rows affected/returned)")
 
 
-# ==========================================
 # Fetch Games from API
-# ==========================================
 def fetch_games_api(
     api: BalldontlieAPI,
     dates: list = None,
@@ -119,9 +117,8 @@ def fetch_games_api(
     return pd.json_normalize(all_games)
 
 
-# ==========================================
 # Transform & Upsert Game Logs
-# ==========================================
+
 def sync_games(
     api: BalldontlieAPI,
     engine: Engine,

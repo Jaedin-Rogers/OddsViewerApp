@@ -75,8 +75,8 @@ public class NBADBService
             var sql = @"
                 SELECT 
                     tl.""gameId"" AS GameId,
-                    COALESCE(NULLIF(tl.""teamName"", ''), NULLIF(tl.""teamCity"", ''), tl.""teamAbbrev"", '') AS Team,
-                    COALESCE(tl.""teamAbbrev"", '') AS TeamAbbrev,
+                    COALESCE(NULLIF(tl.""teamName"", ''), NULLIF(tl.""teamCity"", ''), td.""teamAbbrev"", '') AS Team,
+                    COALESCE(td.""teamAbbrev"", '') AS TeamAbbrev,
                     COALESCE(
                         tl.""gameDate""::date,
                         g.""gameDate""::date,
@@ -85,8 +85,8 @@ public class NBADBService
                             ELSE '1970-01-01'::date 
                         END
                     ) AS GameDate,
-                    COALESCE(NULLIF(tl.""opponentTeamName"", ''), NULLIF(tl.""opponentTeamCity"", ''), tl.""oppAbbrev"", '') AS Opponent,
-                    COALESCE(tl.""oppAbbrev"", '') AS OpponentAbbrev,
+                    COALESCE(NULLIF(tl.""opponentTeamName"", ''), NULLIF(tl.""opponentTeamCity"", ''), otd.""teamAbbrev"", '') AS Opponent,
+                    COALESCE(otd.""teamAbbrev"", '') AS OpponentAbbrev,
                     CASE 
                         WHEN tl.win = 1 THEN CONCAT('W ', COALESCE(tl.""teamScore""::text, ''), '-', COALESCE(tl.""opponentScore""::text, ''))
                         WHEN tl.win = 0 THEN CONCAT('L ', COALESCE(tl.""teamScore""::text, ''), '-', COALESCE(tl.""opponentScore""::text, ''))
@@ -113,6 +113,8 @@ public class NBADBService
                     COALESCE(tl.""gameType"", '') AS GameType
                 FROM team.team_log tl
                 LEFT JOIN game.game_dim g ON tl.""gameId"" = g.""gameId""
+                LEFT JOIN team.team_dim td ON tl.""teamId"" = td.""teamId""
+                LEFT JOIN team.team_dim otd ON tl.opponentteamid = otd.""teamId""
                 WHERE 1 = 1
             ";
 
@@ -122,7 +124,7 @@ public class NBADBService
             {
                 sql += @" AND (
                     LOWER(tl.""teamName"") = LOWER(@Team) 
-                    OR LOWER(tl.""teamAbbrev"") = LOWER(@Team)
+                    OR LOWER(td.""teamAbbrev"") = LOWER(@Team)
                     OR LOWER(tl.""teamCity"") = LOWER(@Team)
                 )";
                 parameters.Add("Team", team);
