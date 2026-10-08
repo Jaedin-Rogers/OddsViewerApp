@@ -8,3 +8,6 @@ balldontlie>=0.1.0
 curl_cffi>=0.7.0
 requests>=2.28.0
 nba-api>=1.1.10
+scikit-learn>=1.4
+scipy>=1.11
+joblib>=1.3
