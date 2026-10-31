@@ -47,9 +47,7 @@ def log_sample_results(label: str, result_proxy, limit: int = 5):
 
 # ==========================================
 # Fetch Games from API
-<<<<<<< Updated upstream
 # ==========================================
-=======
 def _flatten(record: dict, parent: str = "") -> dict:
     """Flattens nested dicts into dotted keys (e.g. home_team.id), like pandas.json_normalize."""
     flat = {}
@@ -68,7 +66,6 @@ def _games_frame(records: list) -> pl.DataFrame:
     return pl.DataFrame([_flatten(r) for r in records], infer_schema_length=None)
 
 
->>>>>>> Stashed changes
 def fetch_games_api(
     api: BalldontlieAPI,
     dates: list = None,
@@ -139,9 +136,6 @@ def fetch_games_api(
 
 # ==========================================
 # Transform & Upsert Game Logs
-<<<<<<< Updated upstream
-# ==========================================
-=======
 
 OPTIONAL_RAW_COLUMNS = [
     "id", "datetime", "date", "home_team.id", "home_team.city", "home_team.name",
@@ -222,8 +216,6 @@ def stage_games(conn, df: pl.DataFrame):
         params = ", ".join(f":{name}" for name in STAGING_COLUMNS)
         conn.execute(text(f"INSERT INTO game._stg_game_dim ({names}) VALUES ({params});"), rows)
 
-
->>>>>>> Stashed changes
 def sync_games(
     api: BalldontlieAPI,
     engine: Engine,
