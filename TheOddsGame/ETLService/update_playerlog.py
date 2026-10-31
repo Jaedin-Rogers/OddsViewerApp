@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import logging
+import unicodedata
 from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
@@ -20,6 +21,21 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger("PlayerLogSync")
+
+# Characters NFKD decomposition doesn't reduce to ASCII.
+_ASCII_FOLD = str.maketrans({
+    "đ": "d", "Đ": "D", "ł": "l", "Ł": "L", "ø": "o", "Ø": "O",
+    "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE", "ß": "ss", "ı": "i",
+    "þ": "th", "Þ": "Th", "ð": "d", "Ð": "D",
+})
+
+
+def to_ascii(value) -> str:
+    """Strips diacritics (e.g. 'Dončić' -> 'Doncic') so names match play.player_dim."""
+    text_value = str(value).translate(_ASCII_FOLD)
+    decomposed = unicodedata.normalize("NFKD", text_value)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
 
 
 def log_sample_results(label: str, result_proxy, limit: int = 5):
@@ -138,7 +154,7 @@ def sync_player_logs(
             return parts[0], ""
         return parts[0], " ".join(parts[1:])
 
-    names = df_raw["PLAYER_NAME"].apply(split_name)
+    names = df_raw["PLAYER_NAME"].apply(lambda n: split_name(to_ascii(n)))
     df_transformed = pd.DataFrame()
     df_transformed["firstName"] = [n[0] for n in names]
     df_transformed["lastName"] = [n[1] for n in names]

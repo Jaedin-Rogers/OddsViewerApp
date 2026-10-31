@@ -61,6 +61,8 @@ builder.Services.Configure<NbaDbOptions>(options =>
 });
 
 builder.Services.AddScoped<NBADBService>();
+builder.Services.AddScoped<BoxScoreService>();
+builder.Services.AddScoped<PlayerHistoryService>();
 
 var app = builder.Build();
 
