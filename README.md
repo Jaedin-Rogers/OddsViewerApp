@@ -10,8 +10,9 @@ A Blazor Server web app for browsing NBA odds, player props, and NBA stats/game 
 | Page | Route | Description |
 |---|---|---|
 | Odds Dashboard | `/` or `/odds` | NBA moneyline/totals/player-props odds, filterable by team, player, bookmaker, and market. Sport is hardcoded to NBA (`basketball_nba`). |
-| Player Props | `/player-props` | NBA-only event/market picker for player prop odds (points, rebounds, assists, etc.), with bet selection and ML-ready JSON export. |
-| Stats & Game Logs | `/stat` | Browse team game logs and player box scores loaded from the Postgres NBA database, with team/season/player filtering and row pinning. |
+| Player Props | `/player-props` | NBA-only event/market picker for player prop odds (points, rebounds, assists, etc.), with bet selection, ML-ready JSON export, and a **Predict** button that scores selected bets with the trained stat models. |
+| Game Results & Box Scores | `/stat` | Most recent games first (date, home, away, score). Search by team, filter by date, and click a game for a box score dialog with a home/away toggle and team totals. |
+| Player History | `/player-history`, `/player-history/{playerId}` | Search players by name or list a team's roster, then view a player's games 10 per page with the full box score line and the team result. Linked from every player name in a box score. |
 
 
 ## Features
@@ -23,7 +24,10 @@ A Blazor Server web app for browsing NBA odds, player props, and NBA stats/game 
 - Match dates displayed in a configurable timezone with abbreviation (e.g. `2026-07-12 19:00 CDT`)
 - American odds format (configurable)
 - Pandas-ready / ML-ready JSON export preview for selected bets
-- Team & player game log browser backed by a PostgreSQL database, with pinning and client-side filtering that updates in real time
+- Team & player game log browser backed by a PostgreSQL database
+- Box scores: click any game to see every player's line (MIN, PTS, REB, AST, STL, BLK, TO, FG, 3PT, FT, +/-) with a home/away toggle and a totals row
+- Player history: paged game logs with team results, plus a "starting at" date filter (shows games on or before the chosen date, newest first) on both the games list and a player's history
+- Model predictions for points, rebounds and assists props: predicted stat, model probability for the selected Over/Under, and edge versus the book's implied probability
 - MudBlazor UI with light/dark theme support
 
 
@@ -37,6 +41,7 @@ A Blazor Server web app for browsing NBA odds, player props, and NBA stats/game 
 | Live Odds Data | The Odds API v4 |
 | Stats Database | PostgreSQL (queried via Dapper/Npgsql) |
 | ETL / Data Pipelines | Python (`pandas`, `sqlalchemy`, `psycopg`, `nba_api`, `balldontlie`) |
+| ML | scikit-learn gradient boosting (Poisson loss) + negative-binomial probabilities, served by a Python script the web app calls |
 | Styling | Bootstrap + MudBlazor theming |
 
 
@@ -125,7 +130,7 @@ All options live under the `OddsApi` section in `appsettings.json`:
 
 ### NBA Stats Database
 
-The Stats & Game Logs page reads from a PostgreSQL database via `NBADBService`. Connection settings are configured through `projectsettings.json` (see `projectsettings.example.json` for the template — copy it to `projectsettings.json` and fill in real values, which is git-ignored) or environment variables:
+The Game Results, Player History and Player Props pages read from a PostgreSQL database via `BoxScoreService`, `PlayerHistoryService` and `NBADBService`. Connection settings are configured through `projectsettings.json` (see `projectsettings.example.json` for the template — copy it to `projectsettings.json` and fill in real values, which is git-ignored) or environment variables:
 
 
 | Key | Description |
@@ -137,6 +142,34 @@ The Stats & Game Logs page reads from a PostgreSQL database via `NBADBService`. 
 | `DB_PASSWORD` | Database password |
 
 These same values are also used by the Python ETL scripts and can alternatively be provided via a `.env` file or repository secrets for CI.
+
+### Box score and player history data
+
+- Games come from `game.game_dim` (scores, teams) and player lines from `play.player_log`. Game times are normalized with `ml.parse_game_ts`, the same function the `ml` views use, because `gameDateTimeEst` is stored as text in two formats (`9/1/20 17:30` and `2026-04-24 20:00:00`).
+- The services deliberately avoid `ml.player_game_base`: its window function forces a scan of all ~790k player rows per query (15-20 s per box score vs ~0.3 s direct).
+- Upcoming games exist in `game_dim` with 0-0 scores; the games list hides them.
+- Player names are stored ASCII-folded (e.g. `Luka Doncic`); `update_playerlog.py` strips diacritics from NBA API names so they match `player_dim`.
+- Team rosters in Player History come from `player_dim.playerteamid`, which is only as fresh as the last `SyncDim.py` run.
+
+### Machine learning predictions
+
+The Predict button on the Player Props page sends the selected bets to `TheOddsGame/MLService/predict_player.py` (run as a process; JSON in via stdin, JSON out via stdout).
+
+| File | Purpose |
+|---|---|
+| `MLService/train_player.py` | Builds features from the `ml` views, trains one Poisson gradient-boosting model per stat (points, assists, rebounds), and saves `models/player_stat_models.joblib`. |
+| `MLService/predict_player.py` | Rebuilds the pre-game features for an upcoming game from the raw logs, predicts the mean, and converts it to P(over)/P(under) for the line with a negative-binomial distribution. |
+| `MLService/validate_predict.py` | Checks the serving features against the SQL views on played games and compares model error to L10-average. |
+
+Settings live under `Ml` in `appsettings.json`:
+
+| Key | Default | Description |
+|---|---|---|
+| `PythonPath` | `python` | Interpreter with the packages in `requirements.txt` installed. The model file was saved with scikit-learn 1.9.1, so use the same or a newer version. |
+| `ScriptPath` | `MLService/predict_player.py` | Relative paths resolve from the web project folder. |
+| `TimeoutSeconds` | `180` | Kill the script if a prediction batch takes longer. |
+
+Limitations: only `player_points`, `player_rebounds`, `player_assists` (and `_alternate`) markets are supported; there is no injury or lineup data; each click starts a new Python process (a few seconds). On a small validation sample the model did not yet beat a plain last-10-games average, so treat the output as experimental and check calibration before relying on it.
 
 
 ## Data Pipelines
@@ -188,15 +221,29 @@ OddsViewerApp/
 └── TheOddsGame/
     ├── Components/
     │   ├── Pages/
-    │   │   └── Odds.razor          # Main odds viewer page
-    │   └── Layout/                 # Shell layout, nav, reconnect modal
-    ├── Models/
-    │   └── OddsModels.cs           # OddsRow, SportOption, EventOption
-    ├── Services/
-    │   ├── OddsApiService.cs       # API client + response flattening
-    │   └── OddsApiOptions.cs       # Strongly-typed config
-    ├── appsettings.json
-    └── Program.cs
+    │   │   ├── Odds.razor              # Main odds viewer page
+    │   │   ├── PlayerProps.razor       # Prop picker + model predictions
+    │   │   ├── Stat.razor              # Game results list
+    │   │   ├── BoxScoreDialogue.razor  # Box score dialog (team toggle, totals)
+    │   │   └── PlayerHistory.razor     # Player search + paged game log
+    │   └── Layout/                     # Shell layout, nav, reconnect modal
+    ├── Models/
+    │   ├── OddsModels.cs               # OddsRow, SportOption, EventOption
+    │   ├── BoxScoreModels.cs           # GameSummary, GameBoxScore
+    │   ├── PlayerBoxScore.cs
+    │   ├── PlayerHistoryModels.cs      # PlayerListItem, PlayerGameLog
+    │   └── PlayerPrediction.cs
+    ├── Services/
+    │   ├── OddsApiService.cs           # API client + response flattening
+    │   ├── OddsApiOptions.cs           # Strongly-typed config
+    │   ├── BoxScoreService.cs          # Recent games + box scores
+    │   ├── PlayerHistoryService.cs     # Player search + game logs
+    │   ├── PlayerPredictionService.cs  # Runs predict_player.py
+    │   └── MlOptions.cs
+    ├── MLService/                      # Training, serving, validation, model file
+    ├── ETLService/                     # Python sync scripts
+    ├── appsettings.json
+    └── Program.cs
 ```
 
 

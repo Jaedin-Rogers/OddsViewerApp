@@ -1,0 +1,130 @@
+@using OddsViewerApp.Models
+@using OddsViewerApp.Services
+
+@inject BoxScoreService BoxScores
+
+<MudDialog>
+    <DialogContent>
+        @if (_isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_box is null)
+        {
+            <MudText>Game not found.</MudText>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <div>
+                        <MudText Typo="Typo.h6">@_box.Game.Matchup &mdash; @_box.Game.Score</MudText>
+                        <MudText Typo="Typo.caption">@_box.Game.GameDate.ToString("MMM d, yyyy")</MudText>
+                    </div>
+                    <MudToggleGroup T="bool" @bind-Value="_showHome" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection">
+                        <MudToggleItem Value="true" Text="@_box.Game.HomeTeam" />
+                        <MudToggleItem Value="false" Text="@_box.Game.AwayTeam" />
+                    </MudToggleGroup>
+                </MudStack>
+
+                <MudTable Items="Visible" T="PlayerBoxScore" Dense="true" Hover="true" Elevation="0"
+                          Breakpoint="Breakpoint.None" FixedHeader="true" FixedFooter="true" Height="55vh">
+                    <HeaderContent>
+                        <MudTh>Player</MudTh>
+                        <MudTh>MIN</MudTh>
+                        <MudTh>PTS</MudTh>
+                        <MudTh>REB</MudTh>
+                        <MudTh>AST</MudTh>
+                        <MudTh>STL</MudTh>
+                        <MudTh>BLK</MudTh>
+                        <MudTh>TO</MudTh>
+                        <MudTh>FG</MudTh>
+                        <MudTh>3PT</MudTh>
+                        <MudTh>FT</MudTh>
+                        <MudTh>+/-</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudLink Href="@($"/player-history/{context.PlayerId}")"
+                                     OnClick="() => CloseDialog()"
+                                     Underline="Underline.Hover">@context.PlayerName</MudLink>
+                        </MudTd>
+                        <MudTd>@Fmt(context.Minutes, "0")</MudTd>
+                        <MudTd>@Fmt(context.Points)</MudTd>
+                        <MudTd>@Fmt(context.Rebounds)</MudTd>
+                        <MudTd>@Fmt(context.Assists)</MudTd>
+                        <MudTd>@Fmt(context.Steals)</MudTd>
+                        <MudTd>@Fmt(context.Blocks)</MudTd>
+                        <MudTd>@Fmt(context.Turnovers)</MudTd>
+                        <MudTd>@Shot(context.FieldGoalsMade, context.FieldGoalsAttempted)</MudTd>
+                        <MudTd>@Shot(context.ThreePointersMade, context.ThreePointersAttempted)</MudTd>
+                        <MudTd>@Shot(context.FreeThrowsMade, context.FreeThrowsAttempted)</MudTd>
+                        <MudTd>@Fmt(context.PlusMinus, "+0;-0;0")</MudTd>
+                    </RowTemplate>
+                    <FooterContent>
+                        <MudTd><b>Totals</b></MudTd>
+                        <MudTd><b>@Fmt(Visible.Sum(p => p.Minutes ?? 0), "0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Points ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Rebounds ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Assists ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Steals ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Blocks ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Visible.Sum(p => p.Turnovers ?? 0).ToString("0")</b></MudTd>
+                        <MudTd><b>@Shot(Visible.Sum(p => p.FieldGoalsMade ?? 0), Visible.Sum(p => p.FieldGoalsAttempted ?? 0))</b></MudTd>
+                        <MudTd><b>@Shot(Visible.Sum(p => p.ThreePointersMade ?? 0), Visible.Sum(p => p.ThreePointersAttempted ?? 0))</b></MudTd>
+                        <MudTd><b>@Shot(Visible.Sum(p => p.FreeThrowsMade ?? 0), Visible.Sum(p => p.FreeThrowsAttempted ?? 0))</b></MudTd>
+                        <MudTd></MudTd>
+                    </FooterContent>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4">No player stats for this team.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudStack>
+        }
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter] public long GameId { get; set; }
+
+    private GameBoxScore? _box;
+    private bool _isLoading = true;
+    private bool _showHome = true;
+    private string? _error;
+
+    private List<PlayerBoxScore> Visible =>
+        (_showHome ? _box?.HomePlayers : _box?.AwayPlayers)?.ToList() ?? new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        _showHome = true;
+        try
+        {
+            _box = await BoxScores.GetBoxScoreAsync(GameId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load box score: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void CloseDialog() => MudDialog?.Close();
+
+    private static string Fmt(decimal? value, string format = "0") =>
+        value.HasValue ? value.Value.ToString(format) : "-";
+
+    private static string Shot(decimal? made, decimal? attempted) =>
+        made.HasValue && attempted.HasValue ? $"{made:0}-{attempted:0}" : "-";
+}

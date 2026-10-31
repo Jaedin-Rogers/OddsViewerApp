@@ -1,0 +1,322 @@
+@page "/player-history"
+@page "/player-history/{PlayerId:long}"
+@rendermode InteractiveServer
+
+@using OddsViewerApp.Models
+@using OddsViewerApp.Services
+
+@inject PlayerHistoryService Players
+@inject NavigationManager Nav
+
+<PageTitle>Player History</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    }
+
+    @if (PlayerId is null)
+    {
+        <MudText Typo="Typo.h5" Class="mb-1">Player History</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4">Search for a player or pick a team to list its current roster, then click a player to see recent games.</MudText>
+
+        <MudPaper Class="pa-4 mb-4" Outlined="true">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string"
+                                  Value="_nameSearch"
+                                  ValueChanged="OnNameChanged"
+                                  Label="Search player"
+                                  Placeholder="e.g. Tatum"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true"
+                                  DebounceInterval="400"
+                                  Clearable="true"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               Value="_team"
+                               ValueChanged="OnTeamChanged"
+                               Label="Team"
+                               Clearable="true"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense">
+                        @foreach (var t in _teams)
+                        {
+                            <MudSelectItem Value="@t">@t</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        }
+
+        <MudTable Items="_playerList" T="PlayerListItem" Hover="true" Dense="true"
+                  OnRowClick="OnPlayerClick" RowStyle="cursor: pointer;" Elevation="1">
+            <HeaderContent>
+                <MudTh>Player</MudTh>
+                <MudTh>Team</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Player">@context.PlayerName</MudTd>
+                <MudTd DataLabel="Team">@context.TeamName</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">
+                    @(_isLoading ? "Loading..." : (string.IsNullOrWhiteSpace(_nameSearch) && string.IsNullOrWhiteSpace(_team)
+                        ? "Search for a player or select a team."
+                        : "No players found."))
+                </MudText>
+            </NoRecordsContent>
+        </MudTable>
+    }
+    else
+    {
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2" OnClick="BackToSearch">Back to players</MudButton>
+
+        <MudText Typo="Typo.h5">@(_player?.PlayerName ?? "Player")</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4">
+            @(_player?.TeamName) &middot; @_totalGames @(_dateFilter.HasValue ? $"games on or before {_dateFilter:MMM d, yyyy}" : "games on record")
+        </MudText>
+
+        @if (_isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+        }
+
+        <MudTable Items="_games" T="PlayerGameLog" Dense="true" Hover="true" Elevation="1"
+                  Breakpoint="Breakpoint.None">
+            <HeaderContent>
+                <MudTh>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                        <span>Game Date</span>
+                        <MudIconButton Icon="@(_dateFilter.HasValue ? Icons.Material.Filled.FilterAlt : Icons.Material.Outlined.FilterAlt)"
+                                       Color="@(_dateFilter.HasValue ? Color.Primary : Color.Default)"
+                                       Size="Size.Small"
+                                       OnClick="ToggleDateFilter"
+                                       aria-label="Show games starting at a date" />
+                        <MudPopover Open="_dateFilterOpen"
+                                    AnchorOrigin="Origin.BottomLeft"
+                                    TransformOrigin="Origin.TopLeft"
+                                    Fixed="true"
+                                    Paper="true"
+                                    Class="pa-2">
+                            <MudStack Spacing="1">
+                                <MudDatePicker Date="_dateFilter"
+                                               DateChanged="OnDateFilterChanged"
+                                               PickerVariant="PickerVariant.Static" />
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudButton Size="Size.Small" OnClick="ClearDateFilter" Disabled="@(!_dateFilter.HasValue)">Clear</MudButton>
+                                    <MudButton Size="Size.Small" OnClick="ToggleDateFilter">Close</MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudPopover>
+                    </MudStack>
+                </MudTh>
+                <MudTh>Matchup</MudTh>
+                <MudTh>Result</MudTh>
+                <MudTh>MIN</MudTh>
+                <MudTh>PTS</MudTh>
+                <MudTh>REB</MudTh>
+                <MudTh>AST</MudTh>
+                <MudTh>STL</MudTh>
+                <MudTh>BLK</MudTh>
+                <MudTh>TO</MudTh>
+                <MudTh>FG</MudTh>
+                <MudTh>3PT</MudTh>
+                <MudTh>FT</MudTh>
+                <MudTh>+/-</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.GameDate.ToString("MMM d, yyyy")</MudTd>
+                <MudTd>@context.Matchup</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Color="@(context.Win == true ? Color.Success : context.Win == false ? Color.Error : Color.Default)">
+                        @context.Result
+                    </MudText>
+                </MudTd>
+                <MudTd>@Fmt(context.Minutes)</MudTd>
+                <MudTd>@Fmt(context.Points)</MudTd>
+                <MudTd>@Fmt(context.Rebounds)</MudTd>
+                <MudTd>@Fmt(context.Assists)</MudTd>
+                <MudTd>@Fmt(context.Steals)</MudTd>
+                <MudTd>@Fmt(context.Blocks)</MudTd>
+                <MudTd>@Fmt(context.Turnovers)</MudTd>
+                <MudTd>@Shot(context.FieldGoalsMade, context.FieldGoalsAttempted)</MudTd>
+                <MudTd>@Shot(context.ThreePointersMade, context.ThreePointersAttempted)</MudTd>
+                <MudTd>@Shot(context.FreeThrowsMade, context.FreeThrowsAttempted)</MudTd>
+                <MudTd>@Fmt(context.PlusMinus, "+0;-0;0")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">@(_isLoading ? "Loading games..." : "No games found.")</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudStack Row="true" Justify="Justify.Center" AlignItems="AlignItems.Center" Class="mt-3" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Disabled="@(_page == 0 || _isLoading)" OnClick="PreviousPage">Previous</MudButton>
+            <MudText Typo="Typo.body2">Page @(_page + 1) of @Math.Max(1, (int)Math.Ceiling(_totalGames / (double)PageSize))</MudText>
+            <MudButton Variant="Variant.Outlined" Disabled="@((_page + 1) * PageSize >= _totalGames || _isLoading)" OnClick="NextPage">Next</MudButton>
+        </MudStack>
+    }
+
+</MudContainer>
+
+@code {
+    private const int PageSize = 10;
+
+    [Parameter] public long? PlayerId { get; set; }
+
+    private List<string> _teams = new();
+    private List<PlayerListItem> _playerList = new();
+    private string? _nameSearch;
+    private string? _team;
+
+    private PlayerListItem? _player;
+    private List<PlayerGameLog> _games = new();
+    private int _totalGames;
+    private int _page;
+    private DateTime? _dateFilter;
+    private bool _dateFilterOpen;
+
+    private bool _isLoading;
+    private string? _error;
+    private long? _loadedPlayerId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _teams = await Players.GetCurrentTeamsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load teams: {ex.Message}";
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PlayerId is null)
+        {
+            _loadedPlayerId = null;
+            return;
+        }
+
+        if (_loadedPlayerId == PlayerId) return;
+
+        _loadedPlayerId = PlayerId;
+        _page = 0;
+        _dateFilter = null;
+        _dateFilterOpen = false;
+        _player = null;
+        _games = new();
+        await LoadPlayerAsync();
+    }
+
+    private async Task LoadPlayerAsync()
+    {
+        if (PlayerId is null) return;
+
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _player ??= await Players.GetPlayerAsync(PlayerId.Value);
+            _totalGames = await Players.GetPlayerGameCountAsync(PlayerId.Value, _dateFilter);
+            _games = await Players.GetPlayerGamesAsync(PlayerId.Value, PageSize, _page * PageSize, _dateFilter);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load player history: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleDateFilter() => _dateFilterOpen = !_dateFilterOpen;
+
+    private async Task OnDateFilterChanged(DateTime? date)
+    {
+        _dateFilter = date;
+        _dateFilterOpen = false;
+        _page = 0;
+        await LoadPlayerAsync();
+    }
+
+    private async Task ClearDateFilter() => await OnDateFilterChanged(null);
+
+    private async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_nameSearch) && string.IsNullOrWhiteSpace(_team))
+        {
+            _playerList = new();
+            return;
+        }
+
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _playerList = await Players.SearchPlayersAsync(_nameSearch, _team);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not search players: {ex.Message}";
+            _playerList = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnNameChanged(string? value)
+    {
+        _nameSearch = value;
+        await SearchAsync();
+    }
+
+    private async Task OnTeamChanged(string? value)
+    {
+        _team = value;
+        await SearchAsync();
+    }
+
+    private void OnPlayerClick(TableRowClickEventArgs<PlayerListItem> args)
+    {
+        if (args.Item is not null)
+            Nav.NavigateTo($"/player-history/{args.Item.PlayerId}");
+    }
+
+    private void BackToSearch() => Nav.NavigateTo("/player-history");
+
+    private async Task NextPage()
+    {
+        _page++;
+        await LoadPlayerAsync();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (_page == 0) return;
+        _page--;
+        await LoadPlayerAsync();
+    }
+
+    private static string Fmt(decimal? value, string format = "0") =>
+        value.HasValue ? value.Value.ToString(format) : "-";
+
+    private static string Shot(decimal? made, decimal? attempted) =>
+        made.HasValue && attempted.HasValue ? $"{made:0}-{attempted:0}" : "-";
+}
