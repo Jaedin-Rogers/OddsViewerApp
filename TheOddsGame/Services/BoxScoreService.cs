@@ -5,21 +5,23 @@ using OddsViewerApp.Models;
 
 namespace OddsViewerApp.Services;
 
+// Reads game.game_dim / play.player_log directly. ml.player_game_base computes a window
+// function over every player row, which makes per-game lookups take 15-20 s.
+// Dates use ml.parse_game_ts, the same normalization the ml views use.
 public class BoxScoreService
 {
-    // One row per game, built from the player-level view; home is stored as 1/0.
+    // game_dim also lists upcoming games with 0-0 scores, so only completed games are returned.
     private const string GameSummarySelect = @"
         SELECT
-            gameid AS GameId,
-            MIN(gamedatetimeest) AS GameDate,
-            COALESCE(MAX(gametype), '') AS GameType,
-            COALESCE(MAX(CASE WHEN home = 1 THEN COALESCE(NULLIF(playerteamname, ''), playerteamcity) END), '') AS HomeTeam,
-            MAX(homescore) AS HomeScore,
-            COALESCE(MAX(CASE WHEN home = 0 THEN COALESCE(NULLIF(playerteamname, ''), playerteamcity) END), '') AS AwayTeam,
-            MAX(awayscore) AS AwayScore
-        FROM ml.player_game_base";
-
-    private const string GameSummaryGroup = " GROUP BY gameid";
+            g.""gameId"" AS GameId,
+            ml.parse_game_ts(g.""gameDateTimeEst"") AS GameDate,
+            COALESCE(g.""gameType"", '') AS GameType,
+            COALESCE(NULLIF(g.""hometeamName"", ''), g.""hometeamCity"", '') AS HomeTeam,
+            g.""homeScore"" AS HomeScore,
+            COALESCE(NULLIF(g.""awayteamName"", ''), g.""awayteamCity"", '') AS AwayTeam,
+            g.""awayScore"" AS AwayScore
+        FROM game.game_dim g
+        WHERE (COALESCE(g.""homeScore"", 0) > 0 OR COALESCE(g.""awayScore"", 0) > 0)";
 
     private readonly NbaDbOptions _options;
     private readonly ILogger<BoxScoreService> _logger;
@@ -53,22 +55,19 @@ public class BoxScoreService
 
             if (!string.IsNullOrWhiteSpace(team))
             {
-                sql += @" WHERE gameid IN (
-                    SELECT gameid FROM ml.player_game_base
-                    WHERE CONCAT(playerteamcity, ' ', playerteamname) ILIKE @Team
-                       OR playerteamname ILIKE @Team)";
+                sql += @" AND (
+                    CONCAT(g.""hometeamCity"", ' ', g.""hometeamName"") ILIKE @Team
+                    OR CONCAT(g.""awayteamCity"", ' ', g.""awayteamName"") ILIKE @Team)";
                 parameters.Add("Team", "%" + team.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
             }
 
-            sql += GameSummaryGroup;
-
             if (gameDate.HasValue)
             {
-                sql += " HAVING MIN(gamedatetimeest)::date = @GameDate";
+                sql += @" AND g.""gameDate""::date <= @GameDate";
                 parameters.Add("GameDate", gameDate.Value.Date);
             }
 
-            sql += @" ORDER BY MIN(gamedatetimeest) DESC NULLS LAST, gameid DESC LIMIT @Limit OFFSET @Offset;";
+            sql += @" ORDER BY g.""gameDate""::date DESC, g.""gameId"" DESC LIMIT @Limit OFFSET @Offset;";
             parameters.Add("Limit", limit);
             parameters.Add("Offset", offset);
 
@@ -87,7 +86,7 @@ public class BoxScoreService
         {
             await using var conn = CreateConnection();
             return await conn.QueryFirstOrDefaultAsync<GameSummary>(
-                GameSummarySelect + " WHERE gameid = @GameId" + GameSummaryGroup + ";", new { GameId = gameId });
+                GameSummarySelect + @" AND g.""gameId"" = @GameId;", new { GameId = gameId });
         }
         catch (Exception ex)
         {
@@ -104,30 +103,30 @@ public class BoxScoreService
 
             var sql = @"
                 SELECT
-                    gameid AS GameId,
-                    gamedatetimeest AS GameDate,
-                    COALESCE(NULLIF(playerteamname, ''), playerteamcity, '') AS TeamName,
-                    home = 1 AS Home,
-                    playerid AS PlayerId,
-                    TRIM(CONCAT(COALESCE(firstname, ''), ' ', COALESCE(lastname, ''))) AS PlayerName,
-                    COALESCE(startingposition, '') AS StartingPosition,
-                    numminutes AS Minutes,
-                    points AS Points,
-                    reboundstotal AS Rebounds,
-                    assists AS Assists,
-                    steals AS Steals,
-                    blocks AS Blocks,
-                    turnovers AS Turnovers,
-                    plusminus AS PlusMinus,
-                    fieldgoalsmade AS FieldGoalsMade,
-                    fieldgoalsattempted AS FieldGoalsAttempted,
-                    threepointersmade AS ThreePointersMade,
-                    threepointersattempted AS ThreePointersAttempted,
-                    freethrowsmade AS FreeThrowsMade,
-                    freethrowsattempted AS FreeThrowsAttempted
-                FROM ml.player_game_base
-                WHERE gameid = @GameId
-                ORDER BY points DESC NULLS LAST, lastname;
+                    pl.""gameId"" AS GameId,
+                    ml.parse_game_ts(pl.""gameDateTimeEst"") AS GameDate,
+                    COALESCE(NULLIF(pl.""playerteamName"", ''), pl.""playerteamCity"", '') AS TeamName,
+                    pl.home = 1 AS Home,
+                    pl.playerindex AS PlayerId,
+                    TRIM(CONCAT(COALESCE(pl.""firstName"", ''), ' ', COALESCE(pl.""lastName"", ''))) AS PlayerName,
+                    COALESCE(pl.""startingPosition"", '') AS StartingPosition,
+                    pl.""numMinutes""::numeric AS Minutes,
+                    pl.points AS Points,
+                    pl.""reboundsTotal"" AS Rebounds,
+                    pl.assists AS Assists,
+                    pl.steals AS Steals,
+                    pl.blocks AS Blocks,
+                    pl.turnovers AS Turnovers,
+                    pl.plusminus AS PlusMinus,
+                    pl.""fieldGoalsMade"" AS FieldGoalsMade,
+                    pl.""fieldGoalsAttempted"" AS FieldGoalsAttempted,
+                    pl.""threePointersMade"" AS ThreePointersMade,
+                    pl.""threePointersAttempted"" AS ThreePointersAttempted,
+                    pl.""freeThrowsMade"" AS FreeThrowsMade,
+                    pl.""freeThrowsAttempted"" AS FreeThrowsAttempted
+                FROM play.player_log pl
+                WHERE pl.""gameId"" = @GameId
+                ORDER BY pl.points DESC NULLS LAST, pl.""lastName"";
             ";
 
             return (await conn.QueryAsync<PlayerBoxScore>(sql, new { GameId = gameId })).ToList();

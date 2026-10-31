@@ -5,7 +5,6 @@ public class PlayerListItem
     public long PlayerId { get; set; }
     public string PlayerName { get; set; } = string.Empty;
     public string TeamName { get; set; } = string.Empty;
-    public DateTime LastGameDate { get; set; }
 }
 
 public class PlayerGameLog

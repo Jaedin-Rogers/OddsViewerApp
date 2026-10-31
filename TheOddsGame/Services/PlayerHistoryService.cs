@@ -5,11 +5,10 @@ using OddsViewerApp.Models;
 
 namespace OddsViewerApp.Services;
 
+// Reads play.player_dim / play.player_log / game.game_dim directly instead of the slower
+// ml.player_game_base view. Dates use ml.parse_game_ts, the same normalization the ml views use.
 public class PlayerHistoryService
 {
-    private const string TeamExpr = "COALESCE(NULLIF(playerteamname, ''), playerteamcity, '')";
-    private const string PlayerNameExpr = "TRIM(CONCAT(COALESCE(firstname, ''), ' ', COALESCE(lastname, '')))";
-
     private readonly NbaDbOptions _options;
     private readonly ILogger<PlayerHistoryService> _logger;
 
@@ -30,17 +29,16 @@ public class PlayerHistoryService
         return new NpgsqlConnection(connStr);
     }
 
-    // Teams that have played in the most recent season in the data.
+    // Teams that currently have players assigned in player_dim.
     public async Task<List<string>> GetCurrentTeamsAsync()
     {
         try
         {
             await using var conn = CreateConnection();
-            var sql = $@"
-                SELECT DISTINCT {TeamExpr} AS TeamName
-                FROM ml.player_game_base
-                WHERE season_start_year = (SELECT MAX(season_start_year) FROM ml.player_game_base)
-                  AND {TeamExpr} <> ''
+            const string sql = @"
+                SELECT DISTINCT COALESCE(NULLIF(t.""teamName"", ''), t.""teamCity"") AS TeamName
+                FROM team.team_dim t
+                JOIN play.player_dim p ON p.playerteamid = t.""teamId""
                 ORDER BY 1;";
             return (await conn.QueryAsync<string>(sql)).ToList();
         }
@@ -51,44 +49,37 @@ public class PlayerHistoryService
         }
     }
 
-    // Name search matches any player ever; team filter lists that team's current roster
-    // (latest team = team and played in the most recent season).
+    // Name search covers any player in player_dim; the team filter lists that team's roster.
     public async Task<List<PlayerListItem>> SearchPlayersAsync(string? name, string? team, int limit = 100)
     {
         try
         {
             await using var conn = CreateConnection();
 
-            var sql = $@"
-                WITH latest AS (
-                    SELECT DISTINCT ON (playerid)
-                        playerid, {PlayerNameExpr} AS player_name, {TeamExpr} AS team_name,
-                        gamedatetimeest, season_start_year
-                    FROM ml.player_game_base
-                    WHERE playerid IS NOT NULL
-                    ORDER BY playerid, gamedatetimeest DESC NULLS LAST
-                )
-                SELECT playerid AS PlayerId, player_name AS PlayerName, team_name AS TeamName,
-                       gamedatetimeest AS LastGameDate
-                FROM latest
+            var sql = @"
+                SELECT
+                    p.playerindex AS PlayerId,
+                    TRIM(CONCAT(COALESCE(p.""firstName"", ''), ' ', COALESCE(p.""lastName"", ''))) AS PlayerName,
+                    COALESCE(NULLIF(t.""teamName"", ''), t.""teamCity"", '') AS TeamName
+                FROM play.player_dim p
+                LEFT JOIN team.team_dim t ON t.""teamId"" = p.playerteamid
                 WHERE 1 = 1";
 
             var parameters = new DynamicParameters();
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                sql += " AND player_name ILIKE @Name";
+                sql += @" AND TRIM(CONCAT(COALESCE(p.""firstName"", ''), ' ', COALESCE(p.""lastName"", ''))) ILIKE @Name";
                 parameters.Add("Name", "%" + name.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
             }
 
             if (!string.IsNullOrWhiteSpace(team))
             {
-                sql += @" AND team_name = @Team
-                          AND season_start_year = (SELECT MAX(season_start_year) FROM ml.player_game_base)";
+                sql += @" AND COALESCE(NULLIF(t.""teamName"", ''), t.""teamCity"") = @Team";
                 parameters.Add("Team", team);
             }
 
-            sql += " ORDER BY gamedatetimeest DESC NULLS LAST, player_name LIMIT @Limit;";
+            sql += @" ORDER BY p.""nbaFlag"" DESC NULLS LAST, p.""toYear"" DESC NULLS FIRST, p.""lastName"", p.""firstName"" LIMIT @Limit;";
             parameters.Add("Limit", limit);
 
             return (await conn.QueryAsync<PlayerListItem>(sql, parameters)).ToList();
@@ -105,13 +96,14 @@ public class PlayerHistoryService
         try
         {
             await using var conn = CreateConnection();
-            var sql = $@"
-                SELECT playerid AS PlayerId, {PlayerNameExpr} AS PlayerName, {TeamExpr} AS TeamName,
-                       gamedatetimeest AS LastGameDate
-                FROM ml.player_game_base
-                WHERE playerid = @PlayerId
-                ORDER BY gamedatetimeest DESC NULLS LAST
-                LIMIT 1;";
+            const string sql = @"
+                SELECT
+                    p.playerindex AS PlayerId,
+                    TRIM(CONCAT(COALESCE(p.""firstName"", ''), ' ', COALESCE(p.""lastName"", ''))) AS PlayerName,
+                    COALESCE(NULLIF(t.""teamName"", ''), t.""teamCity"", '') AS TeamName
+                FROM play.player_dim p
+                LEFT JOIN team.team_dim t ON t.""teamId"" = p.playerteamid
+                WHERE p.playerindex = @PlayerId;";
             return await conn.QueryFirstOrDefaultAsync<PlayerListItem>(sql, new { PlayerId = playerId });
         }
         catch (Exception ex)
@@ -121,50 +113,54 @@ public class PlayerHistoryService
         }
     }
 
-    public async Task<int> GetPlayerGameCountAsync(long playerId)
+    public async Task<int> GetPlayerGameCountAsync(long playerId, DateTime? gameDate = null)
     {
         await using var conn = CreateConnection();
-        return await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM ml.player_game_base WHERE playerid = @PlayerId;", new { PlayerId = playerId });
+        var sql = "SELECT COUNT(*) FROM play.player_log pl WHERE pl.playerindex = @PlayerId";
+        if (gameDate.HasValue)
+            sql += @" AND ml.parse_game_ts(pl.""gameDateTimeEst"")::date <= @GameDate";
+        return await conn.ExecuteScalarAsync<int>(sql + ";", new { PlayerId = playerId, GameDate = gameDate?.Date });
     }
 
-    // Most recent games first.
-    public async Task<List<PlayerGameLog>> GetPlayerGamesAsync(long playerId, int limit = 10, int offset = 0)
+    // Most recent games first. gameDate filters to that calendar day.
+    public async Task<List<PlayerGameLog>> GetPlayerGamesAsync(long playerId, int limit = 10, int offset = 0, DateTime? gameDate = null)
     {
         try
         {
             await using var conn = CreateConnection();
 
-            var sql = $@"
+            const string sql = @"
                 SELECT
-                    gameid AS GameId,
-                    gamedatetimeest AS GameDate,
-                    {TeamExpr} AS TeamName,
-                    COALESCE(NULLIF(opponentteamname, ''), opponentteamcity, '') AS OpponentName,
-                    home = 1 AS Home,
-                    CASE WHEN win = 1 THEN true WHEN win = 0 THEN false END AS Win,
-                    player_team_score AS TeamScore,
-                    opponent_score AS OpponentScore,
-                    numminutes AS Minutes,
-                    points AS Points,
-                    reboundstotal AS Rebounds,
-                    assists AS Assists,
-                    steals AS Steals,
-                    blocks AS Blocks,
-                    turnovers AS Turnovers,
-                    plusminus AS PlusMinus,
-                    fieldgoalsmade AS FieldGoalsMade,
-                    fieldgoalsattempted AS FieldGoalsAttempted,
-                    threepointersmade AS ThreePointersMade,
-                    threepointersattempted AS ThreePointersAttempted,
-                    freethrowsmade AS FreeThrowsMade,
-                    freethrowsattempted AS FreeThrowsAttempted
-                FROM ml.player_game_base
-                WHERE playerid = @PlayerId
-                ORDER BY gamedatetimeest DESC NULLS LAST, gameid DESC
+                    pl.""gameId"" AS GameId,
+                    ml.parse_game_ts(pl.""gameDateTimeEst"") AS GameDate,
+                    COALESCE(NULLIF(pl.""playerteamName"", ''), pl.""playerteamCity"", '') AS TeamName,
+                    COALESCE(NULLIF(pl.""opponentteamName"", ''), pl.""opponentteamCity"", '') AS OpponentName,
+                    pl.home = 1 AS Home,
+                    CASE WHEN pl.win = 1 THEN true WHEN pl.win = 0 THEN false END AS Win,
+                    CASE WHEN pl.home = 1 THEN g.""homeScore"" ELSE g.""awayScore"" END AS TeamScore,
+                    CASE WHEN pl.home = 1 THEN g.""awayScore"" ELSE g.""homeScore"" END AS OpponentScore,
+                    pl.""numMinutes""::numeric AS Minutes,
+                    pl.points AS Points,
+                    pl.""reboundsTotal"" AS Rebounds,
+                    pl.assists AS Assists,
+                    pl.steals AS Steals,
+                    pl.blocks AS Blocks,
+                    pl.turnovers AS Turnovers,
+                    pl.plusminus AS PlusMinus,
+                    pl.""fieldGoalsMade"" AS FieldGoalsMade,
+                    pl.""fieldGoalsAttempted"" AS FieldGoalsAttempted,
+                    pl.""threePointersMade"" AS ThreePointersMade,
+                    pl.""threePointersAttempted"" AS ThreePointersAttempted,
+                    pl.""freeThrowsMade"" AS FreeThrowsMade,
+                    pl.""freeThrowsAttempted"" AS FreeThrowsAttempted
+                FROM play.player_log pl
+                LEFT JOIN game.game_dim g ON g.""gameId"" = pl.""gameId""
+                WHERE pl.playerindex = @PlayerId
+                  AND (@GameDate::date IS NULL OR ml.parse_game_ts(pl.""gameDateTimeEst"")::date <= @GameDate::date)
+                ORDER BY ml.parse_game_ts(pl.""gameDateTimeEst"") DESC NULLS LAST, pl.""gameId"" DESC
                 LIMIT @Limit OFFSET @Offset;";
 
-            return (await conn.QueryAsync<PlayerGameLog>(sql, new { PlayerId = playerId, Limit = limit, Offset = offset })).ToList();
+            return (await conn.QueryAsync<PlayerGameLog>(sql, new { PlayerId = playerId, Limit = limit, Offset = offset, GameDate = gameDate?.Date })).ToList();
         }
         catch (Exception ex)
         {

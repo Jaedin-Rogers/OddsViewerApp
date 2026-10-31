@@ -48,7 +48,11 @@
                         <MudTh>+/-</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd>@context.PlayerName</MudTd>
+                        <MudTd>
+                            <MudLink Href="@($"/player-history/{context.PlayerId}")"
+                                     OnClick="() => CloseDialog()"
+                                     Underline="Underline.Hover">@context.PlayerName</MudLink>
+                        </MudTd>
                         <MudTd>@Fmt(context.Minutes, "0")</MudTd>
                         <MudTd>@Fmt(context.Points)</MudTd>
                         <MudTd>@Fmt(context.Rebounds)</MudTd>
@@ -85,6 +89,8 @@
 </MudDialog>
 
 @code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+
     [Parameter] public long GameId { get; set; }
 
     private GameBoxScore? _box;
@@ -113,6 +119,8 @@
             _isLoading = false;
         }
     }
+
+    private void CloseDialog() => MudDialog?.Close();
 
     private static string Fmt(decimal? value, string format = "0") =>
         value.HasValue ? value.Value.ToString(format) : "-";

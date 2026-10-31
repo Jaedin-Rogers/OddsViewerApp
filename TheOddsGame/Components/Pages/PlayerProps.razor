@@ -5,6 +5,7 @@
 @using OddsViewerApp.Models
 @using OddsViewerApp.Services
 @inject OddsApiService OddsApi
+@inject PlayerPredictionService Predictions
 
 <PageTitle>Player Props</PageTitle>
 
@@ -89,10 +90,27 @@
             <MudPaper Class="pa-4 mb-3" Outlined="true">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
                     <MudText Typo="Typo.h6">Selected Bets (@SelectedBets.Count)</MudText>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="ClearSelectedBets">
-                        Clear Selected Bets
-                    </MudButton>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Insights"
+                                   OnClick="PredictSelectedBetsAsync" Disabled="@IsPredicting">
+                            @(IsPredicting ? "Predicting..." : "Predict")
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="ClearSelectedBets">
+                            Clear Selected Bets
+                        </MudButton>
+                    </MudStack>
                 </MudStack>
+
+                @if (IsPredicting)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                }
+
+                @if (!string.IsNullOrWhiteSpace(PredictionError))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-2">@PredictionError</MudAlert>
+                }
 
                 <MudDataGrid T="OddsRow"
                              Items="@SelectedBets.Take(200).ToList()"
@@ -117,6 +135,54 @@
                         <PropertyColumn Property="x => x.Selection" Title="Selection" />
                         <PropertyColumn Property="x => x.Handicap" Title="Line" />
                         <PropertyColumn Property="x => x.Price" Title="Price" />
+                        <TemplateColumn T="OddsRow" Title="Model">
+                            <CellTemplate>
+                                @{ var pred = GetPrediction(context.Item); }
+                                @if (pred is null)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                                }
+                                else if (!pred.Ok)
+                                {
+                                    <MudTooltip Text="@pred.Error">
+                                        <MudText Typo="Typo.caption" Color="Color.Error">Unavailable</MudText>
+                                    </MudTooltip>
+                                }
+                                else
+                                {
+                                    <MudTooltip Text="@PredictionDetail(pred)">
+                                        <MudText Typo="Typo.body2"><strong>@pred.Predicted.ToString("0.0")</strong> @pred.Stat</MudText>
+                                    </MudTooltip>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn T="OddsRow" Title="Model % (pick)">
+                            <CellTemplate>
+                                @{ var pred = GetPrediction(context.Item); }
+                                @if (pred is { Ok: true, PPick: not null })
+                                {
+                                    <span>@pred.Selection @pred.PPick.Value.ToString("P0")</span>
+                                }
+                                else if (pred is { Ok: true, POver: not null })
+                                {
+                                    <span>Over @pred.POver.Value.ToString("P0")</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn T="OddsRow" Title="Edge vs book">
+                            <CellTemplate>
+                                @{
+                                    var pred = GetPrediction(context.Item);
+                                    var edge = pred?.Edge(context.Item.Price);
+                                }
+                                @if (edge.HasValue)
+                                {
+                                    <span style="color:@(edge.Value >= 0 ? "#2e7d32" : "#c62828"); font-weight:600;">
+                                        @edge.Value.ToString("+0.0%;-0.0%")
+                                    </span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
                     </Columns>
                 </MudDataGrid>
 
@@ -202,6 +268,9 @@
     private List<string> PropMarkets = new();
     private List<OddsRow> AllRows = new();
     private readonly Dictionary<string, OddsRow> SelectedBetsByKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PlayerPrediction> PredictionsByKey = new(StringComparer.Ordinal);
+    private bool IsPredicting;
+    private string PredictionError = "";
     private readonly Dictionary<string, List<string>> EventMarketsCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<OddsRow>> EventPropsCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -354,16 +423,58 @@
         var key = GetBetKey(row);
         if (!SelectedBetsByKey.Remove(key))
             SelectedBetsByKey[key] = row;
+        else
+            PredictionsByKey.Remove(key);
     }
 
     private void RemoveSelectedBet(OddsRow row)
     {
-        SelectedBetsByKey.Remove(GetBetKey(row));
+        var key = GetBetKey(row);
+        SelectedBetsByKey.Remove(key);
+        PredictionsByKey.Remove(key);
     }
 
     private void ClearSelectedBets()
     {
         SelectedBetsByKey.Clear();
+        PredictionsByKey.Clear();
+        PredictionError = "";
+    }
+
+    private PlayerPrediction? GetPrediction(OddsRow row) =>
+        PredictionsByKey.TryGetValue(GetBetKey(row), out var p) ? p : null;
+
+    private async Task PredictSelectedBetsAsync()
+    {
+        var bets = SelectedBets.Take(200).ToList();
+        if (!bets.Any()) return;
+
+        IsPredicting = true;
+        PredictionError = "";
+        try
+        {
+            var results = await Predictions.PredictAsync(bets);
+            for (var i = 0; i < bets.Count; i++)
+                PredictionsByKey[GetBetKey(bets[i])] = results[i];
+        }
+        catch (Exception ex)
+        {
+            PredictionError = ex.Message;
+        }
+        finally
+        {
+            IsPredicting = false;
+        }
+    }
+
+    private static string PredictionDetail(PlayerPrediction p)
+    {
+        var parts = new List<string> { $"{p.Position} · {(p.IsHome ? "home" : "away")} · {p.GamesInWindow} games of history" };
+        if (p.AvgL5.HasValue) parts.Add($"L5 {p.AvgL5:0.0}");
+        if (p.AvgL10.HasValue) parts.Add($"L10 {p.AvgL10:0.0}");
+        if (p.AvgSeason.HasValue) parts.Add($"season {p.AvgSeason:0.0}");
+        if (p.MinutesAvgL10.HasValue) parts.Add($"{p.MinutesAvgL10:0.0} min (L10)");
+        return string.Join(" · ", parts);
     }
 
     private bool IsBetSelected(OddsRow row)

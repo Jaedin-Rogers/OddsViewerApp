@@ -63,6 +63,8 @@ builder.Services.Configure<NbaDbOptions>(options =>
 builder.Services.AddScoped<NBADBService>();
 builder.Services.AddScoped<BoxScoreService>();
 builder.Services.AddScoped<PlayerHistoryService>();
+builder.Services.Configure<MlOptions>(builder.Configuration.GetSection("Ml"));
+builder.Services.AddScoped<PlayerPredictionService>();
 
 var app = builder.Build();
 

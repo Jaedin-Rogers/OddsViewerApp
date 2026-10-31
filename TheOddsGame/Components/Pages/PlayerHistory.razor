@@ -65,12 +65,10 @@
             <HeaderContent>
                 <MudTh>Player</MudTh>
                 <MudTh>Team</MudTh>
-                <MudTh>Last Game</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Player">@context.PlayerName</MudTd>
                 <MudTd DataLabel="Team">@context.TeamName</MudTd>
-                <MudTd DataLabel="Last Game">@context.LastGameDate.ToString("MMM d, yyyy")</MudTd>
             </RowTemplate>
             <NoRecordsContent>
                 <MudText Class="pa-4">
@@ -87,7 +85,7 @@
 
         <MudText Typo="Typo.h5">@(_player?.PlayerName ?? "Player")</MudText>
         <MudText Typo="Typo.body2" Class="mb-4">
-            @(_player?.TeamName) &middot; @_totalGames games on record
+            @(_player?.TeamName) &middot; @_totalGames @(_dateFilter.HasValue ? $"games on or before {_dateFilter:MMM d, yyyy}" : "games on record")
         </MudText>
 
         @if (_isLoading)
@@ -98,7 +96,32 @@
         <MudTable Items="_games" T="PlayerGameLog" Dense="true" Hover="true" Elevation="1"
                   Breakpoint="Breakpoint.None">
             <HeaderContent>
-                <MudTh>Date</MudTh>
+                <MudTh>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                        <span>Game Date</span>
+                        <MudIconButton Icon="@(_dateFilter.HasValue ? Icons.Material.Filled.FilterAlt : Icons.Material.Outlined.FilterAlt)"
+                                       Color="@(_dateFilter.HasValue ? Color.Primary : Color.Default)"
+                                       Size="Size.Small"
+                                       OnClick="ToggleDateFilter"
+                                       aria-label="Show games starting at a date" />
+                        <MudPopover Open="_dateFilterOpen"
+                                    AnchorOrigin="Origin.BottomLeft"
+                                    TransformOrigin="Origin.TopLeft"
+                                    Fixed="true"
+                                    Paper="true"
+                                    Class="pa-2">
+                            <MudStack Spacing="1">
+                                <MudDatePicker Date="_dateFilter"
+                                               DateChanged="OnDateFilterChanged"
+                                               PickerVariant="PickerVariant.Static" />
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudButton Size="Size.Small" OnClick="ClearDateFilter" Disabled="@(!_dateFilter.HasValue)">Clear</MudButton>
+                                    <MudButton Size="Size.Small" OnClick="ToggleDateFilter">Close</MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudPopover>
+                    </MudStack>
+                </MudTh>
                 <MudTh>Matchup</MudTh>
                 <MudTh>Result</MudTh>
                 <MudTh>MIN</MudTh>
@@ -161,6 +184,8 @@
     private List<PlayerGameLog> _games = new();
     private int _totalGames;
     private int _page;
+    private DateTime? _dateFilter;
+    private bool _dateFilterOpen;
 
     private bool _isLoading;
     private string? _error;
@@ -190,6 +215,8 @@
 
         _loadedPlayerId = PlayerId;
         _page = 0;
+        _dateFilter = null;
+        _dateFilterOpen = false;
         _player = null;
         _games = new();
         await LoadPlayerAsync();
@@ -204,8 +231,8 @@
         try
         {
             _player ??= await Players.GetPlayerAsync(PlayerId.Value);
-            _totalGames = await Players.GetPlayerGameCountAsync(PlayerId.Value);
-            _games = await Players.GetPlayerGamesAsync(PlayerId.Value, PageSize, _page * PageSize);
+            _totalGames = await Players.GetPlayerGameCountAsync(PlayerId.Value, _dateFilter);
+            _games = await Players.GetPlayerGamesAsync(PlayerId.Value, PageSize, _page * PageSize, _dateFilter);
         }
         catch (Exception ex)
         {
@@ -216,6 +243,18 @@
             _isLoading = false;
         }
     }
+
+    private void ToggleDateFilter() => _dateFilterOpen = !_dateFilterOpen;
+
+    private async Task OnDateFilterChanged(DateTime? date)
+    {
+        _dateFilter = date;
+        _dateFilterOpen = false;
+        _page = 0;
+        await LoadPlayerAsync();
+    }
+
+    private async Task ClearDateFilter() => await OnDateFilterChanged(null);
 
     private async Task SearchAsync()
     {
