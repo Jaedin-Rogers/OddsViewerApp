@@ -148,7 +148,7 @@ def sync_teams(api: BalldontlieAPI, engine: Engine, single: bool = False, team_n
 # ==========================================
 # 2. Extract Players Helper
 # ==========================================
-def fetch_players_api(api: BalldontlieAPI, single: bool = False, first_name: str = None, last_name: str = None, max_players: int = 5000) -> pd.DataFrame:
+def fetch_players_api(api: BalldontlieAPI, single: bool = False, first_name: str = None, last_name: str = None, max_players: int = 10000) -> pd.DataFrame:
     all_players = []
     cursor = None
     backoff = 5
